@@ -1,0 +1,45 @@
+{
+	"name": "sanitize-html-ts",
+	"version": "0.1.0",
+	"description": "Zero-dependency TypeScript rewrite of sanitize-html.",
+	"type": "module",
+	"main": "./dist/index.mjs",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.mts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.mts",
+			"import": "./dist/index.mjs"
+		}
+	},
+	"files": [
+		"dist",
+		"src"
+	],
+	"scripts": {
+		"build": "tsdown",
+		"dev": "tsdown --watch",
+		"test": "pnpm build && vitest run",
+		"test:watch": "vitest",
+		"typecheck": "tsc --noEmit",
+		"prepublishOnly": "pnpm build"
+	},
+	"keywords": [
+		"html",
+		"parser",
+		"sanitizer",
+		"sanitize",
+		"xss",
+		"typescript",
+		"zero-dependency"
+	],
+	"license": "MIT",
+	"devDependencies": {
+		"@types/node": "^22.10.0",
+		"tsdown": "^0.22.0",
+		"typescript": "^6.0.3",
+		"vite": "^6",
+		"vitest": "^4.1.7"
+	},
+	"packageManager": "pnpm@9.0.0"
+}
