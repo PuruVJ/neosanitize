@@ -3,12 +3,23 @@
 	"version": "0.1.0",
 	"description": "Zero-dependency, isomorphic HTML sanitizer: a fast browser-faithful WHATWG engine (deny-by-default) plus a drop-in sanitize-html-compatible legacy engine.",
 	"author": "Puru Vijay <devpuruvj@gmail.com>",
+	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/PuruVJ/neosanitize.git"
+		"url": "git+https://github.com/PuruVJ/neosanitize.git",
+		"directory": "packages/neosanitize"
 	},
 	"homepage": "https://github.com/PuruVJ/neosanitize#readme",
 	"bugs": "https://github.com/PuruVJ/neosanitize/issues",
+	"keywords": [
+		"html",
+		"parser",
+		"sanitizer",
+		"sanitize",
+		"xss",
+		"typescript",
+		"zero-dependency"
+	],
 	"type": "module",
 	"main": "./dist/main/index.mjs",
 	"module": "./dist/main/index.mjs",
@@ -25,8 +36,15 @@
 			"default": "./dist/main/browser.mjs"
 		},
 		"./legacy": {
-			"types": "./dist/legacy/index.d.mts",
-			"import": "./dist/legacy/index.mjs"
+			"require": {
+				"types": "./dist/legacy/index.d.cts",
+				"default": "./dist/legacy/index.cjs"
+			},
+			"import": {
+				"types": "./dist/legacy/index.d.mts",
+				"default": "./dist/legacy/index.mjs"
+			},
+			"default": "./dist/legacy/index.cjs"
 		},
 		"./presets": {
 			"types": "./dist/main/presets/index.d.mts",
@@ -36,10 +54,10 @@
 	"sideEffects": false,
 	"files": [
 		"dist",
-		"src"
+		"legacy.*"
 	],
 	"scripts": {
-		"build": "tsdown",
+		"build": "rm -rf dist && tsdown && node scripts/legacy-stubs.mjs",
 		"dev": "tsdown --watch",
 		"test": "pnpm build && vitest run",
 		"test:watch": "vitest",
@@ -47,28 +65,10 @@
 		"bench:3way": "pnpm build && node bench/three-way.mjs",
 		"fuzz": "pnpm build && node audit/fuzz.mjs",
 		"coverage": "vitest run --coverage",
-		"docs:dev": "pnpm -C docs run dev",
-		"docs:build": "pnpm -C docs run build",
-		"docs:preview": "pnpm -C docs run preview",
 		"typecheck": "tsc --noEmit",
-		"changeset": "changeset",
-		"version": "changeset version",
-		"release": "changeset publish",
 		"prepublishOnly": "pnpm build"
 	},
-	"keywords": [
-		"html",
-		"parser",
-		"sanitizer",
-		"sanitize",
-		"xss",
-		"typescript",
-		"zero-dependency"
-	],
-	"license": "MIT",
 	"devDependencies": {
-		"@changesets/changelog-github": "^0.7.0",
-		"@changesets/cli": "^2.31.0",
 		"@types/node": "^22.10.0",
 		"@types/sanitize-html": "^2.16.1",
 		"@vitest/coverage-v8": "^4",
@@ -80,6 +80,5 @@
 		"typescript": "^6.0.3",
 		"vite": "^6",
 		"vitest": "^4.1.7"
-	},
-	"packageManager": "pnpm@9.0.0"
+	}
 }

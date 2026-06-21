@@ -1,0 +1,22 @@
+{
+	"name": "neosanitize-monorepo",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "pnpm --filter neosanitize run build",
+		"test": "pnpm --filter neosanitize run test",
+		"typecheck": "pnpm --filter neosanitize run typecheck",
+		"changeset": "changeset",
+		"version": "changeset version",
+		"release": "changeset publish",
+		"docs:dev": "pnpm --filter neosanitize-docs run dev",
+		"docs:build": "pnpm --filter neosanitize-docs run build",
+		"docs:preview": "pnpm --filter neosanitize-docs run preview"
+	},
+	"devDependencies": {
+		"@changesets/changelog-github": "^0.7.0",
+		"@changesets/cli": "^2.31.0"
+	},
+	"packageManager": "pnpm@9.0.0"
+}

@@ -10,7 +10,7 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 permissions:
   contents: write # to create the version PR / git tags
   pull-requests: write # to open the "Version Packages" PR
-  id-token: write # for npm provenance
+  id-token: write # OIDC: trusted-publishing auth + provenance
 
 jobs:
   release:
@@ -26,6 +26,9 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # Trusted publishing (OIDC) requires npm >= 11.5.1; Node 22 ships npm 10.
+      - run: npm install -g npm@latest
+
       - run: pnpm install --frozen-lockfile
 
       # Opens/updates a "Version Packages" PR when there are changesets,
@@ -36,9 +39,8 @@ jobs:
           version: pnpm run version
           publish: pnpm run release
         env:
+          # No NPM_TOKEN: auth is via OIDC trusted publishing (configured on
+          # npmjs.com → package → Settings → Trusted Publisher). The `id-token:
+          # write` permission above does the handshake, and provenance is emitted
+          # automatically. GITHUB_TOKEN is only for opening the version PR.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # Publish with npm provenance (signed attestation linking the package
-          # to this repo + commit). Needs `id-token: write` above; CI-only, so a
-          # local `pnpm release` still works (just without an attestation).
-          NPM_CONFIG_PROVENANCE: true

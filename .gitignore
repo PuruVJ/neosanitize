@@ -1,8 +1,15 @@
+# patterns without a leading slash match at any depth — they already cover
+# packages/*/dist, packages/*/node_modules, packages/*/coverage, etc.
 node_modules/
 dist/
-*.log
-.DS_Store
 coverage/
-docs/node_modules
+*.log
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
 docs/.vitepress/dist
 docs/.vitepress/cache
+
+# generated root entry stubs (shipped via package.json `files`, not committed)
+packages/neosanitize/legacy.*

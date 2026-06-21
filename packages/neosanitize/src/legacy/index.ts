@@ -2060,12 +2060,13 @@ sanitizeHtmlFn.simpleTransform = function (newTagName: string, newAttribs?: Attr
 const sanitizeHtml = sanitizeHtmlFn;
 
 export default sanitizeHtml;
-export { sanitizeHtml, Sanitizer };
 
 /**
- * @internal Not part of the public API — exposed only so the test suite can
- * prove the fast attribute-name validator (`isAttrNameParserClean`) is identical
- * to the canonical `VALID_HTML_ATTRIBUTE_NAME` regex on every parser-producible
- * name. Do not use; may change or disappear without notice.
+ * @internal Test-only. The published build entry (`./entry.ts`) re-exports ONLY
+ * the default, so this named export never reaches the bundle — that keeps the
+ * CommonJS output a bare `module.exports = sanitize` (a true drop-in for
+ * `sanitize-html`, whose `.defaults` / `.simpleTransform` are likewise hung off
+ * the function above). The suite imports it to prove `isAttrNameParserClean` is
+ * byte-for-byte equivalent to `VALID_HTML_ATTRIBUTE_NAME`.
  */
 export const __internal = { isAttrNameParserClean, VALID_HTML_ATTRIBUTE_NAME };
