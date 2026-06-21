@@ -38,3 +38,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Publish with npm provenance (signed attestation linking the package
+          # to this repo + commit). Needs `id-token: write` above; CI-only, so a
+          # local `pnpm release` still works (just without an attestation).
+          NPM_CONFIG_PROVENANCE: true
