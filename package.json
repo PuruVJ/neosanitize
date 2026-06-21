@@ -1,17 +1,39 @@
 {
-	"name": "sanitize-html-ts",
+	"name": "neosanitize",
 	"version": "0.1.0",
-	"description": "Zero-dependency TypeScript rewrite of sanitize-html.",
+	"description": "Zero-dependency, isomorphic HTML sanitizer: a fast browser-faithful WHATWG engine (deny-by-default) plus a drop-in sanitize-html-compatible legacy engine.",
+	"author": "Puru Vijay <devpuruvj@gmail.com>",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/PuruVJ/neosanitize.git"
+	},
+	"homepage": "https://github.com/PuruVJ/neosanitize#readme",
+	"bugs": "https://github.com/PuruVJ/neosanitize/issues",
 	"type": "module",
-	"main": "./dist/index.mjs",
-	"module": "./dist/index.mjs",
-	"types": "./dist/index.d.mts",
+	"main": "./dist/main/index.mjs",
+	"module": "./dist/main/index.mjs",
+	"types": "./dist/main/index.d.mts",
 	"exports": {
 		".": {
-			"types": "./dist/index.d.mts",
-			"import": "./dist/index.mjs"
+			"types": "./dist/main/index.d.mts",
+			"browser": "./dist/main/browser.mjs",
+			"import": "./dist/main/index.mjs",
+			"default": "./dist/main/index.mjs"
+		},
+		"./browser": {
+			"types": "./dist/main/browser.d.mts",
+			"default": "./dist/main/browser.mjs"
+		},
+		"./legacy": {
+			"types": "./dist/legacy/index.d.mts",
+			"import": "./dist/legacy/index.mjs"
+		},
+		"./presets": {
+			"types": "./dist/main/presets/index.d.mts",
+			"import": "./dist/main/presets/index.mjs"
 		}
 	},
+	"sideEffects": false,
 	"files": [
 		"dist",
 		"src"
@@ -21,7 +43,17 @@
 		"dev": "tsdown --watch",
 		"test": "pnpm build && vitest run",
 		"test:watch": "vitest",
+		"bench": "pnpm build && node bench/index.mjs",
+		"bench:3way": "pnpm build && node bench/three-way.mjs",
+		"fuzz": "pnpm build && node audit/fuzz.mjs",
+		"coverage": "vitest run --coverage",
+		"docs:dev": "pnpm -C docs run dev",
+		"docs:build": "pnpm -C docs run build",
+		"docs:preview": "pnpm -C docs run preview",
 		"typecheck": "tsc --noEmit",
+		"changeset": "changeset",
+		"version": "changeset version",
+		"release": "changeset publish",
 		"prepublishOnly": "pnpm build"
 	},
 	"keywords": [
@@ -35,7 +67,15 @@
 	],
 	"license": "MIT",
 	"devDependencies": {
+		"@changesets/changelog-github": "^0.7.0",
+		"@changesets/cli": "^2.31.0",
 		"@types/node": "^22.10.0",
+		"@types/sanitize-html": "^2.16.1",
+		"@vitest/coverage-v8": "^4",
+		"happy-dom": "^20.10.6",
+		"sanitize-html": "^2.17.5",
+		"sinon": "^22.0.0",
+		"tinybench": "^6.0.2",
 		"tsdown": "^0.22.0",
 		"typescript": "^6.0.3",
 		"vite": "^6",

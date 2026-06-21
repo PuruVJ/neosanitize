@@ -178,40 +178,19 @@ function isEmptyObject(obj: object): boolean {
 // HTML entity decoding
 // =============================================================================
 
-const NAMED_ENTITIES: Record<string, string> = {
-  amp: '&', AMP: '&',
-  lt: '<', LT: '<',
-  gt: '>', GT: '>',
-  quot: '"', QUOT: '"',
-  apos: "'", APOS: "'",
-  nbsp: ' ',
-  copy: '©', COPY: '©',
-  reg: '®', REG: '®',
-  trade: '™',
-  hellip: '…',
-  mdash: '—',
-  ndash: '–',
-  lsquo: '‘',
-  rsquo: '’',
-  ldquo: '“',
-  rdquo: '”',
-  laquo: '«',
-  raquo: '»',
-  middot: '·',
-  bull: '•',
-  iexcl: '¡',
-  cent: '¢',
-  pound: '£',
-  yen: '¥',
-  euro: '€',
-  sect: '§',
-  para: '¶',
-  deg: '°',
-  plusmn: '±',
-  times: '×',
-  divide: '÷',
-  micro: 'µ'
-};
+// The full WHATWG HTML5 named character reference table lives inline below so
+// the library stays a single zero-dependency, isomorphic file. Regenerate with
+// `node scripts/gen-entities.mjs` (rewrites the block between the markers).
+// <generated-entities> — do not edit by hand
+// Full WHATWG HTML5 named character reference table: 2231 entries
+// (106 legacy no-semicolon forms). Source: scripts/entities-whatwg.json.
+// A Map built from a JSON.parse()'d pair array — fast cold start + fast lookups.
+/** Longest entity name in letters (excluding any trailing ";"). */
+const MAX_ENTITY_NAME_LENGTH = 31;
+const NAMED_ENTITIES: Map<string, string> = new Map(JSON.parse(
+  '[["AElig","Æ"],["AElig;","Æ"],["AMP","&"],["AMP;","&"],["Aacute","Á"],["Aacute;","Á"],["Abreve;","Ă"],["Acirc","Â"],["Acirc;","Â"],["Acy;","А"],["Afr;","𝔄"],["Agrave","À"],["Agrave;","À"],["Alpha;","Α"],["Amacr;","Ā"],["And;","⩓"],["Aogon;","Ą"],["Aopf;","𝔸"],["ApplyFunction;","⁡"],["Aring","Å"],["Aring;","Å"],["Ascr;","𝒜"],["Assign;","≔"],["Atilde","Ã"],["Atilde;","Ã"],["Auml","Ä"],["Auml;","Ä"],["Backslash;","∖"],["Barv;","⫧"],["Barwed;","⌆"],["Bcy;","Б"],["Because;","∵"],["Bernoullis;","ℬ"],["Beta;","Β"],["Bfr;","𝔅"],["Bopf;","𝔹"],["Breve;","˘"],["Bscr;","ℬ"],["Bumpeq;","≎"],["CHcy;","Ч"],["COPY","©"],["COPY;","©"],["Cacute;","Ć"],["Cap;","⋒"],["CapitalDifferentialD;","ⅅ"],["Cayleys;","ℭ"],["Ccaron;","Č"],["Ccedil","Ç"],["Ccedil;","Ç"],["Ccirc;","Ĉ"],["Cconint;","∰"],["Cdot;","Ċ"],["Cedilla;","¸"],["CenterDot;","·"],["Cfr;","ℭ"],["Chi;","Χ"],["CircleDot;","⊙"],["CircleMinus;","⊖"],["CirclePlus;","⊕"],["CircleTimes;","⊗"],["ClockwiseContourIntegral;","∲"],["CloseCurlyDoubleQuote;","”"],["CloseCurlyQuote;","’"],["Colon;","∷"],["Colone;","⩴"],["Congruent;","≡"],["Conint;","∯"],["ContourIntegral;","∮"],["Copf;","ℂ"],["Coproduct;","∐"],["CounterClockwiseContourIntegral;","∳"],["Cross;","⨯"],["Cscr;","𝒞"],["Cup;","⋓"],["CupCap;","≍"],["DD;","ⅅ"],["DDotrahd;","⤑"],["DJcy;","Ђ"],["DScy;","Ѕ"],["DZcy;","Џ"],["Dagger;","‡"],["Darr;","↡"],["Dashv;","⫤"],["Dcaron;","Ď"],["Dcy;","Д"],["Del;","∇"],["Delta;","Δ"],["Dfr;","𝔇"],["DiacriticalAcute;","´"],["DiacriticalDot;","˙"],["DiacriticalDoubleAcute;","˝"],["DiacriticalGrave;","`"],["DiacriticalTilde;","˜"],["Diamond;","⋄"],["DifferentialD;","ⅆ"],["Dopf;","𝔻"],["Dot;","¨"],["DotDot;","⃜"],["DotEqual;","≐"],["DoubleContourIntegral;","∯"],["DoubleDot;","¨"],["DoubleDownArrow;","⇓"],["DoubleLeftArrow;","⇐"],["DoubleLeftRightArrow;","⇔"],["DoubleLeftTee;","⫤"],["DoubleLongLeftArrow;","⟸"],["DoubleLongLeftRightArrow;","⟺"],["DoubleLongRightArrow;","⟹"],["DoubleRightArrow;","⇒"],["DoubleRightTee;","⊨"],["DoubleUpArrow;","⇑"],["DoubleUpDownArrow;","⇕"],["DoubleVerticalBar;","∥"],["DownArrow;","↓"],["DownArrowBar;","⤓"],["DownArrowUpArrow;","⇵"],["DownBreve;","̑"],["DownLeftRightVector;","⥐"],["DownLeftTeeVector;","⥞"],["DownLeftVector;","↽"],["DownLeftVectorBar;","⥖"],["DownRightTeeVector;","⥟"],["DownRightVector;","⇁"],["DownRightVectorBar;","⥗"],["DownTee;","⊤"],["DownTeeArrow;","↧"],["Downarrow;","⇓"],["Dscr;","𝒟"],["Dstrok;","Đ"],["ENG;","Ŋ"],["ETH","Ð"],["ETH;","Ð"],["Eacute","É"],["Eacute;","É"],["Ecaron;","Ě"],["Ecirc","Ê"],["Ecirc;","Ê"],["Ecy;","Э"],["Edot;","Ė"],["Efr;","𝔈"],["Egrave","È"],["Egrave;","È"],["Element;","∈"],["Emacr;","Ē"],["EmptySmallSquare;","◻"],["EmptyVerySmallSquare;","▫"],["Eogon;","Ę"],["Eopf;","𝔼"],["Epsilon;","Ε"],["Equal;","⩵"],["EqualTilde;","≂"],["Equilibrium;","⇌"],["Escr;","ℰ"],["Esim;","⩳"],["Eta;","Η"],["Euml","Ë"],["Euml;","Ë"],["Exists;","∃"],["ExponentialE;","ⅇ"],["Fcy;","Ф"],["Ffr;","𝔉"],["FilledSmallSquare;","◼"],["FilledVerySmallSquare;","▪"],["Fopf;","𝔽"],["ForAll;","∀"],["Fouriertrf;","ℱ"],["Fscr;","ℱ"],["GJcy;","Ѓ"],["GT",">"],["GT;",">"],["Gamma;","Γ"],["Gammad;","Ϝ"],["Gbreve;","Ğ"],["Gcedil;","Ģ"],["Gcirc;","Ĝ"],["Gcy;","Г"],["Gdot;","Ġ"],["Gfr;","𝔊"],["Gg;","⋙"],["Gopf;","𝔾"],["GreaterEqual;","≥"],["GreaterEqualLess;","⋛"],["GreaterFullEqual;","≧"],["GreaterGreater;","⪢"],["GreaterLess;","≷"],["GreaterSlantEqual;","⩾"],["GreaterTilde;","≳"],["Gscr;","𝒢"],["Gt;","≫"],["HARDcy;","Ъ"],["Hacek;","ˇ"],["Hat;","^"],["Hcirc;","Ĥ"],["Hfr;","ℌ"],["HilbertSpace;","ℋ"],["Hopf;","ℍ"],["HorizontalLine;","─"],["Hscr;","ℋ"],["Hstrok;","Ħ"],["HumpDownHump;","≎"],["HumpEqual;","≏"],["IEcy;","Е"],["IJlig;","Ĳ"],["IOcy;","Ё"],["Iacute","Í"],["Iacute;","Í"],["Icirc","Î"],["Icirc;","Î"],["Icy;","И"],["Idot;","İ"],["Ifr;","ℑ"],["Igrave","Ì"],["Igrave;","Ì"],["Im;","ℑ"],["Imacr;","Ī"],["ImaginaryI;","ⅈ"],["Implies;","⇒"],["Int;","∬"],["Integral;","∫"],["Intersection;","⋂"],["InvisibleComma;","⁣"],["InvisibleTimes;","⁢"],["Iogon;","Į"],["Iopf;","𝕀"],["Iota;","Ι"],["Iscr;","ℐ"],["Itilde;","Ĩ"],["Iukcy;","І"],["Iuml","Ï"],["Iuml;","Ï"],["Jcirc;","Ĵ"],["Jcy;","Й"],["Jfr;","𝔍"],["Jopf;","𝕁"],["Jscr;","𝒥"],["Jsercy;","Ј"],["Jukcy;","Є"],["KHcy;","Х"],["KJcy;","Ќ"],["Kappa;","Κ"],["Kcedil;","Ķ"],["Kcy;","К"],["Kfr;","𝔎"],["Kopf;","𝕂"],["Kscr;","𝒦"],["LJcy;","Љ"],["LT","<"],["LT;","<"],["Lacute;","Ĺ"],["Lambda;","Λ"],["Lang;","⟪"],["Laplacetrf;","ℒ"],["Larr;","↞"],["Lcaron;","Ľ"],["Lcedil;","Ļ"],["Lcy;","Л"],["LeftAngleBracket;","⟨"],["LeftArrow;","←"],["LeftArrowBar;","⇤"],["LeftArrowRightArrow;","⇆"],["LeftCeiling;","⌈"],["LeftDoubleBracket;","⟦"],["LeftDownTeeVector;","⥡"],["LeftDownVector;","⇃"],["LeftDownVectorBar;","⥙"],["LeftFloor;","⌊"],["LeftRightArrow;","↔"],["LeftRightVector;","⥎"],["LeftTee;","⊣"],["LeftTeeArrow;","↤"],["LeftTeeVector;","⥚"],["LeftTriangle;","⊲"],["LeftTriangleBar;","⧏"],["LeftTriangleEqual;","⊴"],["LeftUpDownVector;","⥑"],["LeftUpTeeVector;","⥠"],["LeftUpVector;","↿"],["LeftUpVectorBar;","⥘"],["LeftVector;","↼"],["LeftVectorBar;","⥒"],["Leftarrow;","⇐"],["Leftrightarrow;","⇔"],["LessEqualGreater;","⋚"],["LessFullEqual;","≦"],["LessGreater;","≶"],["LessLess;","⪡"],["LessSlantEqual;","⩽"],["LessTilde;","≲"],["Lfr;","𝔏"],["Ll;","⋘"],["Lleftarrow;","⇚"],["Lmidot;","Ŀ"],["LongLeftArrow;","⟵"],["LongLeftRightArrow;","⟷"],["LongRightArrow;","⟶"],["Longleftarrow;","⟸"],["Longleftrightarrow;","⟺"],["Longrightarrow;","⟹"],["Lopf;","𝕃"],["LowerLeftArrow;","↙"],["LowerRightArrow;","↘"],["Lscr;","ℒ"],["Lsh;","↰"],["Lstrok;","Ł"],["Lt;","≪"],["Map;","⤅"],["Mcy;","М"],["MediumSpace;"," "],["Mellintrf;","ℳ"],["Mfr;","𝔐"],["MinusPlus;","∓"],["Mopf;","𝕄"],["Mscr;","ℳ"],["Mu;","Μ"],["NJcy;","Њ"],["Nacute;","Ń"],["Ncaron;","Ň"],["Ncedil;","Ņ"],["Ncy;","Н"],["NegativeMediumSpace;","​"],["NegativeThickSpace;","​"],["NegativeThinSpace;","​"],["NegativeVeryThinSpace;","​"],["NestedGreaterGreater;","≫"],["NestedLessLess;","≪"],["NewLine;","\\n"],["Nfr;","𝔑"],["NoBreak;","⁠"],["NonBreakingSpace;"," "],["Nopf;","ℕ"],["Not;","⫬"],["NotCongruent;","≢"],["NotCupCap;","≭"],["NotDoubleVerticalBar;","∦"],["NotElement;","∉"],["NotEqual;","≠"],["NotEqualTilde;","≂̸"],["NotExists;","∄"],["NotGreater;","≯"],["NotGreaterEqual;","≱"],["NotGreaterFullEqual;","≧̸"],["NotGreaterGreater;","≫̸"],["NotGreaterLess;","≹"],["NotGreaterSlantEqual;","⩾̸"],["NotGreaterTilde;","≵"],["NotHumpDownHump;","≎̸"],["NotHumpEqual;","≏̸"],["NotLeftTriangle;","⋪"],["NotLeftTriangleBar;","⧏̸"],["NotLeftTriangleEqual;","⋬"],["NotLess;","≮"],["NotLessEqual;","≰"],["NotLessGreater;","≸"],["NotLessLess;","≪̸"],["NotLessSlantEqual;","⩽̸"],["NotLessTilde;","≴"],["NotNestedGreaterGreater;","⪢̸"],["NotNestedLessLess;","⪡̸"],["NotPrecedes;","⊀"],["NotPrecedesEqual;","⪯̸"],["NotPrecedesSlantEqual;","⋠"],["NotReverseElement;","∌"],["NotRightTriangle;","⋫"],["NotRightTriangleBar;","⧐̸"],["NotRightTriangleEqual;","⋭"],["NotSquareSubset;","⊏̸"],["NotSquareSubsetEqual;","⋢"],["NotSquareSuperset;","⊐̸"],["NotSquareSupersetEqual;","⋣"],["NotSubset;","⊂⃒"],["NotSubsetEqual;","⊈"],["NotSucceeds;","⊁"],["NotSucceedsEqual;","⪰̸"],["NotSucceedsSlantEqual;","⋡"],["NotSucceedsTilde;","≿̸"],["NotSuperset;","⊃⃒"],["NotSupersetEqual;","⊉"],["NotTilde;","≁"],["NotTildeEqual;","≄"],["NotTildeFullEqual;","≇"],["NotTildeTilde;","≉"],["NotVerticalBar;","∤"],["Nscr;","𝒩"],["Ntilde","Ñ"],["Ntilde;","Ñ"],["Nu;","Ν"],["OElig;","Œ"],["Oacute","Ó"],["Oacute;","Ó"],["Ocirc","Ô"],["Ocirc;","Ô"],["Ocy;","О"],["Odblac;","Ő"],["Ofr;","𝔒"],["Ograve","Ò"],["Ograve;","Ò"],["Omacr;","Ō"],["Omega;","Ω"],["Omicron;","Ο"],["Oopf;","𝕆"],["OpenCurlyDoubleQuote;","“"],["OpenCurlyQuote;","‘"],["Or;","⩔"],["Oscr;","𝒪"],["Oslash","Ø"],["Oslash;","Ø"],["Otilde","Õ"],["Otilde;","Õ"],["Otimes;","⨷"],["Ouml","Ö"],["Ouml;","Ö"],["OverBar;","‾"],["OverBrace;","⏞"],["OverBracket;","⎴"],["OverParenthesis;","⏜"],["PartialD;","∂"],["Pcy;","П"],["Pfr;","𝔓"],["Phi;","Φ"],["Pi;","Π"],["PlusMinus;","±"],["Poincareplane;","ℌ"],["Popf;","ℙ"],["Pr;","⪻"],["Precedes;","≺"],["PrecedesEqual;","⪯"],["PrecedesSlantEqual;","≼"],["PrecedesTilde;","≾"],["Prime;","″"],["Product;","∏"],["Proportion;","∷"],["Proportional;","∝"],["Pscr;","𝒫"],["Psi;","Ψ"],["QUOT","\\""],["QUOT;","\\""],["Qfr;","𝔔"],["Qopf;","ℚ"],["Qscr;","𝒬"],["RBarr;","⤐"],["REG","®"],["REG;","®"],["Racute;","Ŕ"],["Rang;","⟫"],["Rarr;","↠"],["Rarrtl;","⤖"],["Rcaron;","Ř"],["Rcedil;","Ŗ"],["Rcy;","Р"],["Re;","ℜ"],["ReverseElement;","∋"],["ReverseEquilibrium;","⇋"],["ReverseUpEquilibrium;","⥯"],["Rfr;","ℜ"],["Rho;","Ρ"],["RightAngleBracket;","⟩"],["RightArrow;","→"],["RightArrowBar;","⇥"],["RightArrowLeftArrow;","⇄"],["RightCeiling;","⌉"],["RightDoubleBracket;","⟧"],["RightDownTeeVector;","⥝"],["RightDownVector;","⇂"],["RightDownVectorBar;","⥕"],["RightFloor;","⌋"],["RightTee;","⊢"],["RightTeeArrow;","↦"],["RightTeeVector;","⥛"],["RightTriangle;","⊳"],["RightTriangleBar;","⧐"],["RightTriangleEqual;","⊵"],["RightUpDownVector;","⥏"],["RightUpTeeVector;","⥜"],["RightUpVector;","↾"],["RightUpVectorBar;","⥔"],["RightVector;","⇀"],["RightVectorBar;","⥓"],["Rightarrow;","⇒"],["Ropf;","ℝ"],["RoundImplies;","⥰"],["Rrightarrow;","⇛"],["Rscr;","ℛ"],["Rsh;","↱"],["RuleDelayed;","⧴"],["SHCHcy;","Щ"],["SHcy;","Ш"],["SOFTcy;","Ь"],["Sacute;","Ś"],["Sc;","⪼"],["Scaron;","Š"],["Scedil;","Ş"],["Scirc;","Ŝ"],["Scy;","С"],["Sfr;","𝔖"],["ShortDownArrow;","↓"],["ShortLeftArrow;","←"],["ShortRightArrow;","→"],["ShortUpArrow;","↑"],["Sigma;","Σ"],["SmallCircle;","∘"],["Sopf;","𝕊"],["Sqrt;","√"],["Square;","□"],["SquareIntersection;","⊓"],["SquareSubset;","⊏"],["SquareSubsetEqual;","⊑"],["SquareSuperset;","⊐"],["SquareSupersetEqual;","⊒"],["SquareUnion;","⊔"],["Sscr;","𝒮"],["Star;","⋆"],["Sub;","⋐"],["Subset;","⋐"],["SubsetEqual;","⊆"],["Succeeds;","≻"],["SucceedsEqual;","⪰"],["SucceedsSlantEqual;","≽"],["SucceedsTilde;","≿"],["SuchThat;","∋"],["Sum;","∑"],["Sup;","⋑"],["Superset;","⊃"],["SupersetEqual;","⊇"],["Supset;","⋑"],["THORN","Þ"],["THORN;","Þ"],["TRADE;","™"],["TSHcy;","Ћ"],["TScy;","Ц"],["Tab;","\\t"],["Tau;","Τ"],["Tcaron;","Ť"],["Tcedil;","Ţ"],["Tcy;","Т"],["Tfr;","𝔗"],["Therefore;","∴"],["Theta;","Θ"],["ThickSpace;","  "],["ThinSpace;"," "],["Tilde;","∼"],["TildeEqual;","≃"],["TildeFullEqual;","≅"],["TildeTilde;","≈"],["Topf;","𝕋"],["TripleDot;","⃛"],["Tscr;","𝒯"],["Tstrok;","Ŧ"],["Uacute","Ú"],["Uacute;","Ú"],["Uarr;","↟"],["Uarrocir;","⥉"],["Ubrcy;","Ў"],["Ubreve;","Ŭ"],["Ucirc","Û"],["Ucirc;","Û"],["Ucy;","У"],["Udblac;","Ű"],["Ufr;","𝔘"],["Ugrave","Ù"],["Ugrave;","Ù"],["Umacr;","Ū"],["UnderBar;","_"],["UnderBrace;","⏟"],["UnderBracket;","⎵"],["UnderParenthesis;","⏝"],["Union;","⋃"],["UnionPlus;","⊎"],["Uogon;","Ų"],["Uopf;","𝕌"],["UpArrow;","↑"],["UpArrowBar;","⤒"],["UpArrowDownArrow;","⇅"],["UpDownArrow;","↕"],["UpEquilibrium;","⥮"],["UpTee;","⊥"],["UpTeeArrow;","↥"],["Uparrow;","⇑"],["Updownarrow;","⇕"],["UpperLeftArrow;","↖"],["UpperRightArrow;","↗"],["Upsi;","ϒ"],["Upsilon;","Υ"],["Uring;","Ů"],["Uscr;","𝒰"],["Utilde;","Ũ"],["Uuml","Ü"],["Uuml;","Ü"],["VDash;","⊫"],["Vbar;","⫫"],["Vcy;","В"],["Vdash;","⊩"],["Vdashl;","⫦"],["Vee;","⋁"],["Verbar;","‖"],["Vert;","‖"],["VerticalBar;","∣"],["VerticalLine;","|"],["VerticalSeparator;","❘"],["VerticalTilde;","≀"],["VeryThinSpace;"," "],["Vfr;","𝔙"],["Vopf;","𝕍"],["Vscr;","𝒱"],["Vvdash;","⊪"],["Wcirc;","Ŵ"],["Wedge;","⋀"],["Wfr;","𝔚"],["Wopf;","𝕎"],["Wscr;","𝒲"],["Xfr;","𝔛"],["Xi;","Ξ"],["Xopf;","𝕏"],["Xscr;","𝒳"],["YAcy;","Я"],["YIcy;","Ї"],["YUcy;","Ю"],["Yacute","Ý"],["Yacute;","Ý"],["Ycirc;","Ŷ"],["Ycy;","Ы"],["Yfr;","𝔜"],["Yopf;","𝕐"],["Yscr;","𝒴"],["Yuml;","Ÿ"],["ZHcy;","Ж"],["Zacute;","Ź"],["Zcaron;","Ž"],["Zcy;","З"],["Zdot;","Ż"],["ZeroWidthSpace;","​"],["Zeta;","Ζ"],["Zfr;","ℨ"],["Zopf;","ℤ"],["Zscr;","𝒵"],["aacute","á"],["aacute;","á"],["abreve;","ă"],["ac;","∾"],["acE;","∾̳"],["acd;","∿"],["acirc","â"],["acirc;","â"],["acute","´"],["acute;","´"],["acy;","а"],["aelig","æ"],["aelig;","æ"],["af;","⁡"],["afr;","𝔞"],["agrave","à"],["agrave;","à"],["alefsym;","ℵ"],["aleph;","ℵ"],["alpha;","α"],["amacr;","ā"],["amalg;","⨿"],["amp","&"],["amp;","&"],["and;","∧"],["andand;","⩕"],["andd;","⩜"],["andslope;","⩘"],["andv;","⩚"],["ang;","∠"],["ange;","⦤"],["angle;","∠"],["angmsd;","∡"],["angmsdaa;","⦨"],["angmsdab;","⦩"],["angmsdac;","⦪"],["angmsdad;","⦫"],["angmsdae;","⦬"],["angmsdaf;","⦭"],["angmsdag;","⦮"],["angmsdah;","⦯"],["angrt;","∟"],["angrtvb;","⊾"],["angrtvbd;","⦝"],["angsph;","∢"],["angst;","Å"],["angzarr;","⍼"],["aogon;","ą"],["aopf;","𝕒"],["ap;","≈"],["apE;","⩰"],["apacir;","⩯"],["ape;","≊"],["apid;","≋"],["apos;","\'"],["approx;","≈"],["approxeq;","≊"],["aring","å"],["aring;","å"],["ascr;","𝒶"],["ast;","*"],["asymp;","≈"],["asympeq;","≍"],["atilde","ã"],["atilde;","ã"],["auml","ä"],["auml;","ä"],["awconint;","∳"],["awint;","⨑"],["bNot;","⫭"],["backcong;","≌"],["backepsilon;","϶"],["backprime;","‵"],["backsim;","∽"],["backsimeq;","⋍"],["barvee;","⊽"],["barwed;","⌅"],["barwedge;","⌅"],["bbrk;","⎵"],["bbrktbrk;","⎶"],["bcong;","≌"],["bcy;","б"],["bdquo;","„"],["becaus;","∵"],["because;","∵"],["bemptyv;","⦰"],["bepsi;","϶"],["bernou;","ℬ"],["beta;","β"],["beth;","ℶ"],["between;","≬"],["bfr;","𝔟"],["bigcap;","⋂"],["bigcirc;","◯"],["bigcup;","⋃"],["bigodot;","⨀"],["bigoplus;","⨁"],["bigotimes;","⨂"],["bigsqcup;","⨆"],["bigstar;","★"],["bigtriangledown;","▽"],["bigtriangleup;","△"],["biguplus;","⨄"],["bigvee;","⋁"],["bigwedge;","⋀"],["bkarow;","⤍"],["blacklozenge;","⧫"],["blacksquare;","▪"],["blacktriangle;","▴"],["blacktriangledown;","▾"],["blacktriangleleft;","◂"],["blacktriangleright;","▸"],["blank;","␣"],["blk12;","▒"],["blk14;","░"],["blk34;","▓"],["block;","█"],["bne;","=⃥"],["bnequiv;","≡⃥"],["bnot;","⌐"],["bopf;","𝕓"],["bot;","⊥"],["bottom;","⊥"],["bowtie;","⋈"],["boxDL;","╗"],["boxDR;","╔"],["boxDl;","╖"],["boxDr;","╓"],["boxH;","═"],["boxHD;","╦"],["boxHU;","╩"],["boxHd;","╤"],["boxHu;","╧"],["boxUL;","╝"],["boxUR;","╚"],["boxUl;","╜"],["boxUr;","╙"],["boxV;","║"],["boxVH;","╬"],["boxVL;","╣"],["boxVR;","╠"],["boxVh;","╫"],["boxVl;","╢"],["boxVr;","╟"],["boxbox;","⧉"],["boxdL;","╕"],["boxdR;","╒"],["boxdl;","┐"],["boxdr;","┌"],["boxh;","─"],["boxhD;","╥"],["boxhU;","╨"],["boxhd;","┬"],["boxhu;","┴"],["boxminus;","⊟"],["boxplus;","⊞"],["boxtimes;","⊠"],["boxuL;","╛"],["boxuR;","╘"],["boxul;","┘"],["boxur;","└"],["boxv;","│"],["boxvH;","╪"],["boxvL;","╡"],["boxvR;","╞"],["boxvh;","┼"],["boxvl;","┤"],["boxvr;","├"],["bprime;","‵"],["breve;","˘"],["brvbar","¦"],["brvbar;","¦"],["bscr;","𝒷"],["bsemi;","⁏"],["bsim;","∽"],["bsime;","⋍"],["bsol;","\\\\"],["bsolb;","⧅"],["bsolhsub;","⟈"],["bull;","•"],["bullet;","•"],["bump;","≎"],["bumpE;","⪮"],["bumpe;","≏"],["bumpeq;","≏"],["cacute;","ć"],["cap;","∩"],["capand;","⩄"],["capbrcup;","⩉"],["capcap;","⩋"],["capcup;","⩇"],["capdot;","⩀"],["caps;","∩︀"],["caret;","⁁"],["caron;","ˇ"],["ccaps;","⩍"],["ccaron;","č"],["ccedil","ç"],["ccedil;","ç"],["ccirc;","ĉ"],["ccups;","⩌"],["ccupssm;","⩐"],["cdot;","ċ"],["cedil","¸"],["cedil;","¸"],["cemptyv;","⦲"],["cent","¢"],["cent;","¢"],["centerdot;","·"],["cfr;","𝔠"],["chcy;","ч"],["check;","✓"],["checkmark;","✓"],["chi;","χ"],["cir;","○"],["cirE;","⧃"],["circ;","ˆ"],["circeq;","≗"],["circlearrowleft;","↺"],["circlearrowright;","↻"],["circledR;","®"],["circledS;","Ⓢ"],["circledast;","⊛"],["circledcirc;","⊚"],["circleddash;","⊝"],["cire;","≗"],["cirfnint;","⨐"],["cirmid;","⫯"],["cirscir;","⧂"],["clubs;","♣"],["clubsuit;","♣"],["colon;",":"],["colone;","≔"],["coloneq;","≔"],["comma;",","],["commat;","@"],["comp;","∁"],["compfn;","∘"],["complement;","∁"],["complexes;","ℂ"],["cong;","≅"],["congdot;","⩭"],["conint;","∮"],["copf;","𝕔"],["coprod;","∐"],["copy","©"],["copy;","©"],["copysr;","℗"],["crarr;","↵"],["cross;","✗"],["cscr;","𝒸"],["csub;","⫏"],["csube;","⫑"],["csup;","⫐"],["csupe;","⫒"],["ctdot;","⋯"],["cudarrl;","⤸"],["cudarrr;","⤵"],["cuepr;","⋞"],["cuesc;","⋟"],["cularr;","↶"],["cularrp;","⤽"],["cup;","∪"],["cupbrcap;","⩈"],["cupcap;","⩆"],["cupcup;","⩊"],["cupdot;","⊍"],["cupor;","⩅"],["cups;","∪︀"],["curarr;","↷"],["curarrm;","⤼"],["curlyeqprec;","⋞"],["curlyeqsucc;","⋟"],["curlyvee;","⋎"],["curlywedge;","⋏"],["curren","¤"],["curren;","¤"],["curvearrowleft;","↶"],["curvearrowright;","↷"],["cuvee;","⋎"],["cuwed;","⋏"],["cwconint;","∲"],["cwint;","∱"],["cylcty;","⌭"],["dArr;","⇓"],["dHar;","⥥"],["dagger;","†"],["daleth;","ℸ"],["darr;","↓"],["dash;","‐"],["dashv;","⊣"],["dbkarow;","⤏"],["dblac;","˝"],["dcaron;","ď"],["dcy;","д"],["dd;","ⅆ"],["ddagger;","‡"],["ddarr;","⇊"],["ddotseq;","⩷"],["deg","°"],["deg;","°"],["delta;","δ"],["demptyv;","⦱"],["dfisht;","⥿"],["dfr;","𝔡"],["dharl;","⇃"],["dharr;","⇂"],["diam;","⋄"],["diamond;","⋄"],["diamondsuit;","♦"],["diams;","♦"],["die;","¨"],["digamma;","ϝ"],["disin;","⋲"],["div;","÷"],["divide","÷"],["divide;","÷"],["divideontimes;","⋇"],["divonx;","⋇"],["djcy;","ђ"],["dlcorn;","⌞"],["dlcrop;","⌍"],["dollar;","$"],["dopf;","𝕕"],["dot;","˙"],["doteq;","≐"],["doteqdot;","≑"],["dotminus;","∸"],["dotplus;","∔"],["dotsquare;","⊡"],["doublebarwedge;","⌆"],["downarrow;","↓"],["downdownarrows;","⇊"],["downharpoonleft;","⇃"],["downharpoonright;","⇂"],["drbkarow;","⤐"],["drcorn;","⌟"],["drcrop;","⌌"],["dscr;","𝒹"],["dscy;","ѕ"],["dsol;","⧶"],["dstrok;","đ"],["dtdot;","⋱"],["dtri;","▿"],["dtrif;","▾"],["duarr;","⇵"],["duhar;","⥯"],["dwangle;","⦦"],["dzcy;","џ"],["dzigrarr;","⟿"],["eDDot;","⩷"],["eDot;","≑"],["eacute","é"],["eacute;","é"],["easter;","⩮"],["ecaron;","ě"],["ecir;","≖"],["ecirc","ê"],["ecirc;","ê"],["ecolon;","≕"],["ecy;","э"],["edot;","ė"],["ee;","ⅇ"],["efDot;","≒"],["efr;","𝔢"],["eg;","⪚"],["egrave","è"],["egrave;","è"],["egs;","⪖"],["egsdot;","⪘"],["el;","⪙"],["elinters;","⏧"],["ell;","ℓ"],["els;","⪕"],["elsdot;","⪗"],["emacr;","ē"],["empty;","∅"],["emptyset;","∅"],["emptyv;","∅"],["emsp13;"," "],["emsp14;"," "],["emsp;"," "],["eng;","ŋ"],["ensp;"," "],["eogon;","ę"],["eopf;","𝕖"],["epar;","⋕"],["eparsl;","⧣"],["eplus;","⩱"],["epsi;","ε"],["epsilon;","ε"],["epsiv;","ϵ"],["eqcirc;","≖"],["eqcolon;","≕"],["eqsim;","≂"],["eqslantgtr;","⪖"],["eqslantless;","⪕"],["equals;","="],["equest;","≟"],["equiv;","≡"],["equivDD;","⩸"],["eqvparsl;","⧥"],["erDot;","≓"],["erarr;","⥱"],["escr;","ℯ"],["esdot;","≐"],["esim;","≂"],["eta;","η"],["eth","ð"],["eth;","ð"],["euml","ë"],["euml;","ë"],["euro;","€"],["excl;","!"],["exist;","∃"],["expectation;","ℰ"],["exponentiale;","ⅇ"],["fallingdotseq;","≒"],["fcy;","ф"],["female;","♀"],["ffilig;","ﬃ"],["fflig;","ﬀ"],["ffllig;","ﬄ"],["ffr;","𝔣"],["filig;","ﬁ"],["fjlig;","fj"],["flat;","♭"],["fllig;","ﬂ"],["fltns;","▱"],["fnof;","ƒ"],["fopf;","𝕗"],["forall;","∀"],["fork;","⋔"],["forkv;","⫙"],["fpartint;","⨍"],["frac12","½"],["frac12;","½"],["frac13;","⅓"],["frac14","¼"],["frac14;","¼"],["frac15;","⅕"],["frac16;","⅙"],["frac18;","⅛"],["frac23;","⅔"],["frac25;","⅖"],["frac34","¾"],["frac34;","¾"],["frac35;","⅗"],["frac38;","⅜"],["frac45;","⅘"],["frac56;","⅚"],["frac58;","⅝"],["frac78;","⅞"],["frasl;","⁄"],["frown;","⌢"],["fscr;","𝒻"],["gE;","≧"],["gEl;","⪌"],["gacute;","ǵ"],["gamma;","γ"],["gammad;","ϝ"],["gap;","⪆"],["gbreve;","ğ"],["gcirc;","ĝ"],["gcy;","г"],["gdot;","ġ"],["ge;","≥"],["gel;","⋛"],["geq;","≥"],["geqq;","≧"],["geqslant;","⩾"],["ges;","⩾"],["gescc;","⪩"],["gesdot;","⪀"],["gesdoto;","⪂"],["gesdotol;","⪄"],["gesl;","⋛︀"],["gesles;","⪔"],["gfr;","𝔤"],["gg;","≫"],["ggg;","⋙"],["gimel;","ℷ"],["gjcy;","ѓ"],["gl;","≷"],["glE;","⪒"],["gla;","⪥"],["glj;","⪤"],["gnE;","≩"],["gnap;","⪊"],["gnapprox;","⪊"],["gne;","⪈"],["gneq;","⪈"],["gneqq;","≩"],["gnsim;","⋧"],["gopf;","𝕘"],["grave;","`"],["gscr;","ℊ"],["gsim;","≳"],["gsime;","⪎"],["gsiml;","⪐"],["gt",">"],["gt;",">"],["gtcc;","⪧"],["gtcir;","⩺"],["gtdot;","⋗"],["gtlPar;","⦕"],["gtquest;","⩼"],["gtrapprox;","⪆"],["gtrarr;","⥸"],["gtrdot;","⋗"],["gtreqless;","⋛"],["gtreqqless;","⪌"],["gtrless;","≷"],["gtrsim;","≳"],["gvertneqq;","≩︀"],["gvnE;","≩︀"],["hArr;","⇔"],["hairsp;"," "],["half;","½"],["hamilt;","ℋ"],["hardcy;","ъ"],["harr;","↔"],["harrcir;","⥈"],["harrw;","↭"],["hbar;","ℏ"],["hcirc;","ĥ"],["hearts;","♥"],["heartsuit;","♥"],["hellip;","…"],["hercon;","⊹"],["hfr;","𝔥"],["hksearow;","⤥"],["hkswarow;","⤦"],["hoarr;","⇿"],["homtht;","∻"],["hookleftarrow;","↩"],["hookrightarrow;","↪"],["hopf;","𝕙"],["horbar;","―"],["hscr;","𝒽"],["hslash;","ℏ"],["hstrok;","ħ"],["hybull;","⁃"],["hyphen;","‐"],["iacute","í"],["iacute;","í"],["ic;","⁣"],["icirc","î"],["icirc;","î"],["icy;","и"],["iecy;","е"],["iexcl","¡"],["iexcl;","¡"],["iff;","⇔"],["ifr;","𝔦"],["igrave","ì"],["igrave;","ì"],["ii;","ⅈ"],["iiiint;","⨌"],["iiint;","∭"],["iinfin;","⧜"],["iiota;","℩"],["ijlig;","ĳ"],["imacr;","ī"],["image;","ℑ"],["imagline;","ℐ"],["imagpart;","ℑ"],["imath;","ı"],["imof;","⊷"],["imped;","Ƶ"],["in;","∈"],["incare;","℅"],["infin;","∞"],["infintie;","⧝"],["inodot;","ı"],["int;","∫"],["intcal;","⊺"],["integers;","ℤ"],["intercal;","⊺"],["intlarhk;","⨗"],["intprod;","⨼"],["iocy;","ё"],["iogon;","į"],["iopf;","𝕚"],["iota;","ι"],["iprod;","⨼"],["iquest","¿"],["iquest;","¿"],["iscr;","𝒾"],["isin;","∈"],["isinE;","⋹"],["isindot;","⋵"],["isins;","⋴"],["isinsv;","⋳"],["isinv;","∈"],["it;","⁢"],["itilde;","ĩ"],["iukcy;","і"],["iuml","ï"],["iuml;","ï"],["jcirc;","ĵ"],["jcy;","й"],["jfr;","𝔧"],["jmath;","ȷ"],["jopf;","𝕛"],["jscr;","𝒿"],["jsercy;","ј"],["jukcy;","є"],["kappa;","κ"],["kappav;","ϰ"],["kcedil;","ķ"],["kcy;","к"],["kfr;","𝔨"],["kgreen;","ĸ"],["khcy;","х"],["kjcy;","ќ"],["kopf;","𝕜"],["kscr;","𝓀"],["lAarr;","⇚"],["lArr;","⇐"],["lAtail;","⤛"],["lBarr;","⤎"],["lE;","≦"],["lEg;","⪋"],["lHar;","⥢"],["lacute;","ĺ"],["laemptyv;","⦴"],["lagran;","ℒ"],["lambda;","λ"],["lang;","⟨"],["langd;","⦑"],["langle;","⟨"],["lap;","⪅"],["laquo","«"],["laquo;","«"],["larr;","←"],["larrb;","⇤"],["larrbfs;","⤟"],["larrfs;","⤝"],["larrhk;","↩"],["larrlp;","↫"],["larrpl;","⤹"],["larrsim;","⥳"],["larrtl;","↢"],["lat;","⪫"],["latail;","⤙"],["late;","⪭"],["lates;","⪭︀"],["lbarr;","⤌"],["lbbrk;","❲"],["lbrace;","{"],["lbrack;","["],["lbrke;","⦋"],["lbrksld;","⦏"],["lbrkslu;","⦍"],["lcaron;","ľ"],["lcedil;","ļ"],["lceil;","⌈"],["lcub;","{"],["lcy;","л"],["ldca;","⤶"],["ldquo;","“"],["ldquor;","„"],["ldrdhar;","⥧"],["ldrushar;","⥋"],["ldsh;","↲"],["le;","≤"],["leftarrow;","←"],["leftarrowtail;","↢"],["leftharpoondown;","↽"],["leftharpoonup;","↼"],["leftleftarrows;","⇇"],["leftrightarrow;","↔"],["leftrightarrows;","⇆"],["leftrightharpoons;","⇋"],["leftrightsquigarrow;","↭"],["leftthreetimes;","⋋"],["leg;","⋚"],["leq;","≤"],["leqq;","≦"],["leqslant;","⩽"],["les;","⩽"],["lescc;","⪨"],["lesdot;","⩿"],["lesdoto;","⪁"],["lesdotor;","⪃"],["lesg;","⋚︀"],["lesges;","⪓"],["lessapprox;","⪅"],["lessdot;","⋖"],["lesseqgtr;","⋚"],["lesseqqgtr;","⪋"],["lessgtr;","≶"],["lesssim;","≲"],["lfisht;","⥼"],["lfloor;","⌊"],["lfr;","𝔩"],["lg;","≶"],["lgE;","⪑"],["lhard;","↽"],["lharu;","↼"],["lharul;","⥪"],["lhblk;","▄"],["ljcy;","љ"],["ll;","≪"],["llarr;","⇇"],["llcorner;","⌞"],["llhard;","⥫"],["lltri;","◺"],["lmidot;","ŀ"],["lmoust;","⎰"],["lmoustache;","⎰"],["lnE;","≨"],["lnap;","⪉"],["lnapprox;","⪉"],["lne;","⪇"],["lneq;","⪇"],["lneqq;","≨"],["lnsim;","⋦"],["loang;","⟬"],["loarr;","⇽"],["lobrk;","⟦"],["longleftarrow;","⟵"],["longleftrightarrow;","⟷"],["longmapsto;","⟼"],["longrightarrow;","⟶"],["looparrowleft;","↫"],["looparrowright;","↬"],["lopar;","⦅"],["lopf;","𝕝"],["loplus;","⨭"],["lotimes;","⨴"],["lowast;","∗"],["lowbar;","_"],["loz;","◊"],["lozenge;","◊"],["lozf;","⧫"],["lpar;","("],["lparlt;","⦓"],["lrarr;","⇆"],["lrcorner;","⌟"],["lrhar;","⇋"],["lrhard;","⥭"],["lrm;","‎"],["lrtri;","⊿"],["lsaquo;","‹"],["lscr;","𝓁"],["lsh;","↰"],["lsim;","≲"],["lsime;","⪍"],["lsimg;","⪏"],["lsqb;","["],["lsquo;","‘"],["lsquor;","‚"],["lstrok;","ł"],["lt","<"],["lt;","<"],["ltcc;","⪦"],["ltcir;","⩹"],["ltdot;","⋖"],["lthree;","⋋"],["ltimes;","⋉"],["ltlarr;","⥶"],["ltquest;","⩻"],["ltrPar;","⦖"],["ltri;","◃"],["ltrie;","⊴"],["ltrif;","◂"],["lurdshar;","⥊"],["luruhar;","⥦"],["lvertneqq;","≨︀"],["lvnE;","≨︀"],["mDDot;","∺"],["macr","¯"],["macr;","¯"],["male;","♂"],["malt;","✠"],["maltese;","✠"],["map;","↦"],["mapsto;","↦"],["mapstodown;","↧"],["mapstoleft;","↤"],["mapstoup;","↥"],["marker;","▮"],["mcomma;","⨩"],["mcy;","м"],["mdash;","—"],["measuredangle;","∡"],["mfr;","𝔪"],["mho;","℧"],["micro","µ"],["micro;","µ"],["mid;","∣"],["midast;","*"],["midcir;","⫰"],["middot","·"],["middot;","·"],["minus;","−"],["minusb;","⊟"],["minusd;","∸"],["minusdu;","⨪"],["mlcp;","⫛"],["mldr;","…"],["mnplus;","∓"],["models;","⊧"],["mopf;","𝕞"],["mp;","∓"],["mscr;","𝓂"],["mstpos;","∾"],["mu;","μ"],["multimap;","⊸"],["mumap;","⊸"],["nGg;","⋙̸"],["nGt;","≫⃒"],["nGtv;","≫̸"],["nLeftarrow;","⇍"],["nLeftrightarrow;","⇎"],["nLl;","⋘̸"],["nLt;","≪⃒"],["nLtv;","≪̸"],["nRightarrow;","⇏"],["nVDash;","⊯"],["nVdash;","⊮"],["nabla;","∇"],["nacute;","ń"],["nang;","∠⃒"],["nap;","≉"],["napE;","⩰̸"],["napid;","≋̸"],["napos;","ŉ"],["napprox;","≉"],["natur;","♮"],["natural;","♮"],["naturals;","ℕ"],["nbsp"," "],["nbsp;"," "],["nbump;","≎̸"],["nbumpe;","≏̸"],["ncap;","⩃"],["ncaron;","ň"],["ncedil;","ņ"],["ncong;","≇"],["ncongdot;","⩭̸"],["ncup;","⩂"],["ncy;","н"],["ndash;","–"],["ne;","≠"],["neArr;","⇗"],["nearhk;","⤤"],["nearr;","↗"],["nearrow;","↗"],["nedot;","≐̸"],["nequiv;","≢"],["nesear;","⤨"],["nesim;","≂̸"],["nexist;","∄"],["nexists;","∄"],["nfr;","𝔫"],["ngE;","≧̸"],["nge;","≱"],["ngeq;","≱"],["ngeqq;","≧̸"],["ngeqslant;","⩾̸"],["nges;","⩾̸"],["ngsim;","≵"],["ngt;","≯"],["ngtr;","≯"],["nhArr;","⇎"],["nharr;","↮"],["nhpar;","⫲"],["ni;","∋"],["nis;","⋼"],["nisd;","⋺"],["niv;","∋"],["njcy;","њ"],["nlArr;","⇍"],["nlE;","≦̸"],["nlarr;","↚"],["nldr;","‥"],["nle;","≰"],["nleftarrow;","↚"],["nleftrightarrow;","↮"],["nleq;","≰"],["nleqq;","≦̸"],["nleqslant;","⩽̸"],["nles;","⩽̸"],["nless;","≮"],["nlsim;","≴"],["nlt;","≮"],["nltri;","⋪"],["nltrie;","⋬"],["nmid;","∤"],["nopf;","𝕟"],["not","¬"],["not;","¬"],["notin;","∉"],["notinE;","⋹̸"],["notindot;","⋵̸"],["notinva;","∉"],["notinvb;","⋷"],["notinvc;","⋶"],["notni;","∌"],["notniva;","∌"],["notnivb;","⋾"],["notnivc;","⋽"],["npar;","∦"],["nparallel;","∦"],["nparsl;","⫽⃥"],["npart;","∂̸"],["npolint;","⨔"],["npr;","⊀"],["nprcue;","⋠"],["npre;","⪯̸"],["nprec;","⊀"],["npreceq;","⪯̸"],["nrArr;","⇏"],["nrarr;","↛"],["nrarrc;","⤳̸"],["nrarrw;","↝̸"],["nrightarrow;","↛"],["nrtri;","⋫"],["nrtrie;","⋭"],["nsc;","⊁"],["nsccue;","⋡"],["nsce;","⪰̸"],["nscr;","𝓃"],["nshortmid;","∤"],["nshortparallel;","∦"],["nsim;","≁"],["nsime;","≄"],["nsimeq;","≄"],["nsmid;","∤"],["nspar;","∦"],["nsqsube;","⋢"],["nsqsupe;","⋣"],["nsub;","⊄"],["nsubE;","⫅̸"],["nsube;","⊈"],["nsubset;","⊂⃒"],["nsubseteq;","⊈"],["nsubseteqq;","⫅̸"],["nsucc;","⊁"],["nsucceq;","⪰̸"],["nsup;","⊅"],["nsupE;","⫆̸"],["nsupe;","⊉"],["nsupset;","⊃⃒"],["nsupseteq;","⊉"],["nsupseteqq;","⫆̸"],["ntgl;","≹"],["ntilde","ñ"],["ntilde;","ñ"],["ntlg;","≸"],["ntriangleleft;","⋪"],["ntrianglelefteq;","⋬"],["ntriangleright;","⋫"],["ntrianglerighteq;","⋭"],["nu;","ν"],["num;","#"],["numero;","№"],["numsp;"," "],["nvDash;","⊭"],["nvHarr;","⤄"],["nvap;","≍⃒"],["nvdash;","⊬"],["nvge;","≥⃒"],["nvgt;",">⃒"],["nvinfin;","⧞"],["nvlArr;","⤂"],["nvle;","≤⃒"],["nvlt;","<⃒"],["nvltrie;","⊴⃒"],["nvrArr;","⤃"],["nvrtrie;","⊵⃒"],["nvsim;","∼⃒"],["nwArr;","⇖"],["nwarhk;","⤣"],["nwarr;","↖"],["nwarrow;","↖"],["nwnear;","⤧"],["oS;","Ⓢ"],["oacute","ó"],["oacute;","ó"],["oast;","⊛"],["ocir;","⊚"],["ocirc","ô"],["ocirc;","ô"],["ocy;","о"],["odash;","⊝"],["odblac;","ő"],["odiv;","⨸"],["odot;","⊙"],["odsold;","⦼"],["oelig;","œ"],["ofcir;","⦿"],["ofr;","𝔬"],["ogon;","˛"],["ograve","ò"],["ograve;","ò"],["ogt;","⧁"],["ohbar;","⦵"],["ohm;","Ω"],["oint;","∮"],["olarr;","↺"],["olcir;","⦾"],["olcross;","⦻"],["oline;","‾"],["olt;","⧀"],["omacr;","ō"],["omega;","ω"],["omicron;","ο"],["omid;","⦶"],["ominus;","⊖"],["oopf;","𝕠"],["opar;","⦷"],["operp;","⦹"],["oplus;","⊕"],["or;","∨"],["orarr;","↻"],["ord;","⩝"],["order;","ℴ"],["orderof;","ℴ"],["ordf","ª"],["ordf;","ª"],["ordm","º"],["ordm;","º"],["origof;","⊶"],["oror;","⩖"],["orslope;","⩗"],["orv;","⩛"],["oscr;","ℴ"],["oslash","ø"],["oslash;","ø"],["osol;","⊘"],["otilde","õ"],["otilde;","õ"],["otimes;","⊗"],["otimesas;","⨶"],["ouml","ö"],["ouml;","ö"],["ovbar;","⌽"],["par;","∥"],["para","¶"],["para;","¶"],["parallel;","∥"],["parsim;","⫳"],["parsl;","⫽"],["part;","∂"],["pcy;","п"],["percnt;","%"],["period;","."],["permil;","‰"],["perp;","⊥"],["pertenk;","‱"],["pfr;","𝔭"],["phi;","φ"],["phiv;","ϕ"],["phmmat;","ℳ"],["phone;","☎"],["pi;","π"],["pitchfork;","⋔"],["piv;","ϖ"],["planck;","ℏ"],["planckh;","ℎ"],["plankv;","ℏ"],["plus;","+"],["plusacir;","⨣"],["plusb;","⊞"],["pluscir;","⨢"],["plusdo;","∔"],["plusdu;","⨥"],["pluse;","⩲"],["plusmn","±"],["plusmn;","±"],["plussim;","⨦"],["plustwo;","⨧"],["pm;","±"],["pointint;","⨕"],["popf;","𝕡"],["pound","£"],["pound;","£"],["pr;","≺"],["prE;","⪳"],["prap;","⪷"],["prcue;","≼"],["pre;","⪯"],["prec;","≺"],["precapprox;","⪷"],["preccurlyeq;","≼"],["preceq;","⪯"],["precnapprox;","⪹"],["precneqq;","⪵"],["precnsim;","⋨"],["precsim;","≾"],["prime;","′"],["primes;","ℙ"],["prnE;","⪵"],["prnap;","⪹"],["prnsim;","⋨"],["prod;","∏"],["profalar;","⌮"],["profline;","⌒"],["profsurf;","⌓"],["prop;","∝"],["propto;","∝"],["prsim;","≾"],["prurel;","⊰"],["pscr;","𝓅"],["psi;","ψ"],["puncsp;"," "],["qfr;","𝔮"],["qint;","⨌"],["qopf;","𝕢"],["qprime;","⁗"],["qscr;","𝓆"],["quaternions;","ℍ"],["quatint;","⨖"],["quest;","?"],["questeq;","≟"],["quot","\\""],["quot;","\\""],["rAarr;","⇛"],["rArr;","⇒"],["rAtail;","⤜"],["rBarr;","⤏"],["rHar;","⥤"],["race;","∽̱"],["racute;","ŕ"],["radic;","√"],["raemptyv;","⦳"],["rang;","⟩"],["rangd;","⦒"],["range;","⦥"],["rangle;","⟩"],["raquo","»"],["raquo;","»"],["rarr;","→"],["rarrap;","⥵"],["rarrb;","⇥"],["rarrbfs;","⤠"],["rarrc;","⤳"],["rarrfs;","⤞"],["rarrhk;","↪"],["rarrlp;","↬"],["rarrpl;","⥅"],["rarrsim;","⥴"],["rarrtl;","↣"],["rarrw;","↝"],["ratail;","⤚"],["ratio;","∶"],["rationals;","ℚ"],["rbarr;","⤍"],["rbbrk;","❳"],["rbrace;","}"],["rbrack;","]"],["rbrke;","⦌"],["rbrksld;","⦎"],["rbrkslu;","⦐"],["rcaron;","ř"],["rcedil;","ŗ"],["rceil;","⌉"],["rcub;","}"],["rcy;","р"],["rdca;","⤷"],["rdldhar;","⥩"],["rdquo;","”"],["rdquor;","”"],["rdsh;","↳"],["real;","ℜ"],["realine;","ℛ"],["realpart;","ℜ"],["reals;","ℝ"],["rect;","▭"],["reg","®"],["reg;","®"],["rfisht;","⥽"],["rfloor;","⌋"],["rfr;","𝔯"],["rhard;","⇁"],["rharu;","⇀"],["rharul;","⥬"],["rho;","ρ"],["rhov;","ϱ"],["rightarrow;","→"],["rightarrowtail;","↣"],["rightharpoondown;","⇁"],["rightharpoonup;","⇀"],["rightleftarrows;","⇄"],["rightleftharpoons;","⇌"],["rightrightarrows;","⇉"],["rightsquigarrow;","↝"],["rightthreetimes;","⋌"],["ring;","˚"],["risingdotseq;","≓"],["rlarr;","⇄"],["rlhar;","⇌"],["rlm;","‏"],["rmoust;","⎱"],["rmoustache;","⎱"],["rnmid;","⫮"],["roang;","⟭"],["roarr;","⇾"],["robrk;","⟧"],["ropar;","⦆"],["ropf;","𝕣"],["roplus;","⨮"],["rotimes;","⨵"],["rpar;",")"],["rpargt;","⦔"],["rppolint;","⨒"],["rrarr;","⇉"],["rsaquo;","›"],["rscr;","𝓇"],["rsh;","↱"],["rsqb;","]"],["rsquo;","’"],["rsquor;","’"],["rthree;","⋌"],["rtimes;","⋊"],["rtri;","▹"],["rtrie;","⊵"],["rtrif;","▸"],["rtriltri;","⧎"],["ruluhar;","⥨"],["rx;","℞"],["sacute;","ś"],["sbquo;","‚"],["sc;","≻"],["scE;","⪴"],["scap;","⪸"],["scaron;","š"],["sccue;","≽"],["sce;","⪰"],["scedil;","ş"],["scirc;","ŝ"],["scnE;","⪶"],["scnap;","⪺"],["scnsim;","⋩"],["scpolint;","⨓"],["scsim;","≿"],["scy;","с"],["sdot;","⋅"],["sdotb;","⊡"],["sdote;","⩦"],["seArr;","⇘"],["searhk;","⤥"],["searr;","↘"],["searrow;","↘"],["sect","§"],["sect;","§"],["semi;",";"],["seswar;","⤩"],["setminus;","∖"],["setmn;","∖"],["sext;","✶"],["sfr;","𝔰"],["sfrown;","⌢"],["sharp;","♯"],["shchcy;","щ"],["shcy;","ш"],["shortmid;","∣"],["shortparallel;","∥"],["shy","­"],["shy;","­"],["sigma;","σ"],["sigmaf;","ς"],["sigmav;","ς"],["sim;","∼"],["simdot;","⩪"],["sime;","≃"],["simeq;","≃"],["simg;","⪞"],["simgE;","⪠"],["siml;","⪝"],["simlE;","⪟"],["simne;","≆"],["simplus;","⨤"],["simrarr;","⥲"],["slarr;","←"],["smallsetminus;","∖"],["smashp;","⨳"],["smeparsl;","⧤"],["smid;","∣"],["smile;","⌣"],["smt;","⪪"],["smte;","⪬"],["smtes;","⪬︀"],["softcy;","ь"],["sol;","/"],["solb;","⧄"],["solbar;","⌿"],["sopf;","𝕤"],["spades;","♠"],["spadesuit;","♠"],["spar;","∥"],["sqcap;","⊓"],["sqcaps;","⊓︀"],["sqcup;","⊔"],["sqcups;","⊔︀"],["sqsub;","⊏"],["sqsube;","⊑"],["sqsubset;","⊏"],["sqsubseteq;","⊑"],["sqsup;","⊐"],["sqsupe;","⊒"],["sqsupset;","⊐"],["sqsupseteq;","⊒"],["squ;","□"],["square;","□"],["squarf;","▪"],["squf;","▪"],["srarr;","→"],["sscr;","𝓈"],["ssetmn;","∖"],["ssmile;","⌣"],["sstarf;","⋆"],["star;","☆"],["starf;","★"],["straightepsilon;","ϵ"],["straightphi;","ϕ"],["strns;","¯"],["sub;","⊂"],["subE;","⫅"],["subdot;","⪽"],["sube;","⊆"],["subedot;","⫃"],["submult;","⫁"],["subnE;","⫋"],["subne;","⊊"],["subplus;","⪿"],["subrarr;","⥹"],["subset;","⊂"],["subseteq;","⊆"],["subseteqq;","⫅"],["subsetneq;","⊊"],["subsetneqq;","⫋"],["subsim;","⫇"],["subsub;","⫕"],["subsup;","⫓"],["succ;","≻"],["succapprox;","⪸"],["succcurlyeq;","≽"],["succeq;","⪰"],["succnapprox;","⪺"],["succneqq;","⪶"],["succnsim;","⋩"],["succsim;","≿"],["sum;","∑"],["sung;","♪"],["sup1","¹"],["sup1;","¹"],["sup2","²"],["sup2;","²"],["sup3","³"],["sup3;","³"],["sup;","⊃"],["supE;","⫆"],["supdot;","⪾"],["supdsub;","⫘"],["supe;","⊇"],["supedot;","⫄"],["suphsol;","⟉"],["suphsub;","⫗"],["suplarr;","⥻"],["supmult;","⫂"],["supnE;","⫌"],["supne;","⊋"],["supplus;","⫀"],["supset;","⊃"],["supseteq;","⊇"],["supseteqq;","⫆"],["supsetneq;","⊋"],["supsetneqq;","⫌"],["supsim;","⫈"],["supsub;","⫔"],["supsup;","⫖"],["swArr;","⇙"],["swarhk;","⤦"],["swarr;","↙"],["swarrow;","↙"],["swnwar;","⤪"],["szlig","ß"],["szlig;","ß"],["target;","⌖"],["tau;","τ"],["tbrk;","⎴"],["tcaron;","ť"],["tcedil;","ţ"],["tcy;","т"],["tdot;","⃛"],["telrec;","⌕"],["tfr;","𝔱"],["there4;","∴"],["therefore;","∴"],["theta;","θ"],["thetasym;","ϑ"],["thetav;","ϑ"],["thickapprox;","≈"],["thicksim;","∼"],["thinsp;"," "],["thkap;","≈"],["thksim;","∼"],["thorn","þ"],["thorn;","þ"],["tilde;","˜"],["times","×"],["times;","×"],["timesb;","⊠"],["timesbar;","⨱"],["timesd;","⨰"],["tint;","∭"],["toea;","⤨"],["top;","⊤"],["topbot;","⌶"],["topcir;","⫱"],["topf;","𝕥"],["topfork;","⫚"],["tosa;","⤩"],["tprime;","‴"],["trade;","™"],["triangle;","▵"],["triangledown;","▿"],["triangleleft;","◃"],["trianglelefteq;","⊴"],["triangleq;","≜"],["triangleright;","▹"],["trianglerighteq;","⊵"],["tridot;","◬"],["trie;","≜"],["triminus;","⨺"],["triplus;","⨹"],["trisb;","⧍"],["tritime;","⨻"],["trpezium;","⏢"],["tscr;","𝓉"],["tscy;","ц"],["tshcy;","ћ"],["tstrok;","ŧ"],["twixt;","≬"],["twoheadleftarrow;","↞"],["twoheadrightarrow;","↠"],["uArr;","⇑"],["uHar;","⥣"],["uacute","ú"],["uacute;","ú"],["uarr;","↑"],["ubrcy;","ў"],["ubreve;","ŭ"],["ucirc","û"],["ucirc;","û"],["ucy;","у"],["udarr;","⇅"],["udblac;","ű"],["udhar;","⥮"],["ufisht;","⥾"],["ufr;","𝔲"],["ugrave","ù"],["ugrave;","ù"],["uharl;","↿"],["uharr;","↾"],["uhblk;","▀"],["ulcorn;","⌜"],["ulcorner;","⌜"],["ulcrop;","⌏"],["ultri;","◸"],["umacr;","ū"],["uml","¨"],["uml;","¨"],["uogon;","ų"],["uopf;","𝕦"],["uparrow;","↑"],["updownarrow;","↕"],["upharpoonleft;","↿"],["upharpoonright;","↾"],["uplus;","⊎"],["upsi;","υ"],["upsih;","ϒ"],["upsilon;","υ"],["upuparrows;","⇈"],["urcorn;","⌝"],["urcorner;","⌝"],["urcrop;","⌎"],["uring;","ů"],["urtri;","◹"],["uscr;","𝓊"],["utdot;","⋰"],["utilde;","ũ"],["utri;","▵"],["utrif;","▴"],["uuarr;","⇈"],["uuml","ü"],["uuml;","ü"],["uwangle;","⦧"],["vArr;","⇕"],["vBar;","⫨"],["vBarv;","⫩"],["vDash;","⊨"],["vangrt;","⦜"],["varepsilon;","ϵ"],["varkappa;","ϰ"],["varnothing;","∅"],["varphi;","ϕ"],["varpi;","ϖ"],["varpropto;","∝"],["varr;","↕"],["varrho;","ϱ"],["varsigma;","ς"],["varsubsetneq;","⊊︀"],["varsubsetneqq;","⫋︀"],["varsupsetneq;","⊋︀"],["varsupsetneqq;","⫌︀"],["vartheta;","ϑ"],["vartriangleleft;","⊲"],["vartriangleright;","⊳"],["vcy;","в"],["vdash;","⊢"],["vee;","∨"],["veebar;","⊻"],["veeeq;","≚"],["vellip;","⋮"],["verbar;","|"],["vert;","|"],["vfr;","𝔳"],["vltri;","⊲"],["vnsub;","⊂⃒"],["vnsup;","⊃⃒"],["vopf;","𝕧"],["vprop;","∝"],["vrtri;","⊳"],["vscr;","𝓋"],["vsubnE;","⫋︀"],["vsubne;","⊊︀"],["vsupnE;","⫌︀"],["vsupne;","⊋︀"],["vzigzag;","⦚"],["wcirc;","ŵ"],["wedbar;","⩟"],["wedge;","∧"],["wedgeq;","≙"],["weierp;","℘"],["wfr;","𝔴"],["wopf;","𝕨"],["wp;","℘"],["wr;","≀"],["wreath;","≀"],["wscr;","𝓌"],["xcap;","⋂"],["xcirc;","◯"],["xcup;","⋃"],["xdtri;","▽"],["xfr;","𝔵"],["xhArr;","⟺"],["xharr;","⟷"],["xi;","ξ"],["xlArr;","⟸"],["xlarr;","⟵"],["xmap;","⟼"],["xnis;","⋻"],["xodot;","⨀"],["xopf;","𝕩"],["xoplus;","⨁"],["xotime;","⨂"],["xrArr;","⟹"],["xrarr;","⟶"],["xscr;","𝓍"],["xsqcup;","⨆"],["xuplus;","⨄"],["xutri;","△"],["xvee;","⋁"],["xwedge;","⋀"],["yacute","ý"],["yacute;","ý"],["yacy;","я"],["ycirc;","ŷ"],["ycy;","ы"],["yen","¥"],["yen;","¥"],["yfr;","𝔶"],["yicy;","ї"],["yopf;","𝕪"],["yscr;","𝓎"],["yucy;","ю"],["yuml","ÿ"],["yuml;","ÿ"],["zacute;","ź"],["zcaron;","ž"],["zcy;","з"],["zdot;","ż"],["zeetrf;","ℨ"],["zeta;","ζ"],["zfr;","𝔷"],["zhcy;","ж"],["zigrarr;","⇝"],["zopf;","𝕫"],["zscr;","𝓏"],["zwj;","‍"],["zwnj;","‌"]]'
+));
+// </generated-entities>
 
 const NUMERIC_REMAP: Record<number, number> = {
   0x00: 0xfffd,
@@ -224,7 +203,12 @@ const NUMERIC_REMAP: Record<number, number> = {
 };
 
 function codePointToString(cp: number): string {
-  if (cp in NUMERIC_REMAP) cp = NUMERIC_REMAP[cp];
+  // All NUMERIC_REMAP keys are 0 or in [0x80, 0x9f], so skip the hash probe for
+  // the overwhelmingly common in-range code points.
+  if (cp === 0 || (cp >= 0x80 && cp <= 0x9f)) {
+    const remapped = NUMERIC_REMAP[cp];
+    if (remapped !== undefined) cp = remapped;
+  }
   if (cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff)) return '�';
   try {
     return String.fromCodePoint(cp);
@@ -238,50 +222,190 @@ interface EntityMatch {
   length: number;
 }
 
-function decodeEntity(input: string, i: number): EntityMatch | null {
-  if (input[i] !== '&') return null;
-  if (input[i + 1] === '#') {
-    let j = i + 2;
-    let hex = false;
-    if (input[j] === 'x' || input[j] === 'X') { hex = true; j++; }
-    const start = j;
-    const re = hex ? /[0-9a-fA-F]/ : /[0-9]/;
-    while (j < input.length && re.test(input[j])) j++;
-    if (j === start) return null;
-    const num = parseInt(input.substring(start, j), hex ? 16 : 10);
-    let length = j - i;
-    if (input[j] === ';') length++;
-    return { value: codePointToString(num), length };
-  }
-  let j = i + 1;
-  if (!/[a-zA-Z]/.test(input[j] || '')) return null;
-  while (j < input.length && /[a-zA-Z0-9]/.test(input[j])) j++;
-  if (input[j] !== ';') return null;
-  const name = input.substring(i + 1, j);
-  if (has(NAMED_ENTITIES, name)) {
-    return { value: NAMED_ENTITIES[name], length: j - i + 1 };
-  }
-  return null;
+const CC_AMP = 38; // &
+const CC_HASH = 35; // #
+const CC_SEMI = 59; // ;
+const CC_EQ = 61; // =
+
+function isAsciiDigit(cc: number): boolean {
+  return cc >= 48 && cc <= 57;
 }
 
-function decodeEntitiesString(s: string): string {
-  if (s.indexOf('&') === -1) return s;
-  let out = '';
-  let i = 0;
-  while (i < s.length) {
-    const c = s[i];
-    if (c === '&') {
-      const r = decodeEntity(s, i);
-      if (r) {
-        out += r.value;
-        i += r.length;
-        continue;
+function isAsciiAlphaNum(cc: number): boolean {
+  return (
+    (cc >= 48 && cc <= 57) || // 0-9
+    (cc >= 65 && cc <= 90) || // A-Z
+    (cc >= 97 && cc <= 122) // a-z
+  );
+}
+
+// Sorted entity names (keys include any trailing ';') for prefix queries during
+// the trie walk — lets us know whether the input can keep descending toward a
+// longer entity, which the attribute ambiguous-ampersand rule depends on.
+const ENTITY_KEYS_SORTED = [...NAMED_ENTITIES.keys()].sort();
+
+/** True if `s` is a prefix of (or equal to) some entity key. */
+function isEntityPrefix(s: string): boolean {
+  let lo = 0;
+  let hi = ENTITY_KEYS_SORTED.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (ENTITY_KEYS_SORTED[mid] < s) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo < ENTITY_KEYS_SORTED.length && ENTITY_KEYS_SORTED[lo].startsWith(s);
+}
+
+/**
+ * Decode a single character reference starting at `&` (index `i`), matching the
+ * WHATWG HTML algorithm as implemented by the `entities` package (which the
+ * original sanitize-html uses via htmlparser2):
+ *
+ *   - Numeric refs (`&#233;`, `&#x1F600;`) decode regardless of context, with
+ *     the Windows-1252 remap and surrogate/out-of-range → U+FFFD.
+ *   - Named refs use longest-match; a semicolon-terminated form wins when the
+ *     `;` is present, otherwise a legacy no-semicolon form may match.
+ *   - In attribute context, a legacy (no-`;`) match is treated as an ambiguous
+ *     ampersand and left undecoded when followed by `=` or an ASCII alphanumeric
+ *     (so `?a=1&copy=2` is preserved rather than mangled).
+ *
+ * Returns `null` when no valid reference is present (caller emits a literal `&`).
+ */
+function decodeEntity(
+  input: string,
+  i: number,
+  inAttribute: boolean
+): EntityMatch | null {
+  if (input.charCodeAt(i) !== CC_AMP) return null;
+
+  // --- numeric character reference -----------------------------------------
+  if (input.charCodeAt(i + 1) === CC_HASH) {
+    let j = i + 2;
+    const xc = input.charCodeAt(j);
+    const hex = xc === 120 || xc === 88; // x / X
+    if (hex) j++;
+    const start = j;
+    let num = 0;
+    while (j < input.length) {
+      const cc = input.charCodeAt(j);
+      let digit: number;
+      if (isAsciiDigit(cc)) digit = cc - 48;
+      else if (hex && cc >= 97 && cc <= 102) digit = cc - 87; // a-f
+      else if (hex && cc >= 65 && cc <= 70) digit = cc - 55; // A-F
+      else break;
+      // Stop accumulating once out of range; anything past U+10FFFF maps to the
+      // replacement character regardless, and this prevents Number overflow.
+      if (num <= 0x10ffff) num = num * (hex ? 16 : 10) + digit;
+      j++;
+    }
+    if (j === start) return null;
+    let length = j - i;
+    if (input.charCodeAt(j) === CC_SEMI) length++;
+    return { value: codePointToString(num), length };
+  }
+
+  // --- named character reference -------------------------------------------
+  const len = input.length;
+  let resultValue: string | null = null;
+  let resultLen = 0; // chars from i (incl. '&') consumed by the legacy result
+  let name = '';
+  let j = i + 1;
+
+  if (!inAttribute) {
+    // Fast path for the common semicolon-terminated entity (`&amp;`, `&eacute;`):
+    // scan the name extent and look up `name;` in ONE Map.get, skipping the
+    // per-prefix probes. A `;`-terminated form is always the longest match, so
+    // a hit is final. (k stops at the `;` even for the 31-char max entity.)
+    let k = j;
+    while (k < len && k - j < MAX_ENTITY_NAME_LENGTH && isAsciiAlphaNum(input.charCodeAt(k))) k++;
+    if (k < len && input.charCodeAt(k) === CC_SEMI) {
+      const full = NAMED_ENTITIES.get(input.substring(j, k + 1));
+      if (full !== undefined) return { value: full, length: k + 1 - i };
+    }
+    // Fallback: longest legacy (no-`;`) match, or a `;` entity the fast path
+    // missed. Scans ASCII alphanumerics, probing each prefix.
+    while (j < len) {
+      const cc = input.charCodeAt(j);
+      if (cc === CC_SEMI) {
+        const semi = NAMED_ENTITIES.get(name + ';');
+        if (semi !== undefined) return { value: semi, length: j - i + 1 };
+        break;
+      }
+      if (name.length >= MAX_ENTITY_NAME_LENGTH || !isAsciiAlphaNum(cc)) break;
+      name += input[j];
+      j++;
+      const legacy = NAMED_ENTITIES.get(name);
+      if (legacy !== undefined) {
+        resultValue = legacy;
+        resultLen = j - i;
       }
     }
-    out += c;
-    i++;
+    return resultValue === null ? null : { value: resultValue, length: resultLen };
   }
-  return out;
+
+  // Fast path: a `;`-terminated form wins outright and is NOT subject to the
+  // ambiguous-ampersand rule, so look it up in one Map.get and skip the trie
+  // descent (the costly per-char isEntityPrefix binary search).
+  {
+    let k = j;
+    while (k < len && k - j < MAX_ENTITY_NAME_LENGTH && isAsciiAlphaNum(input.charCodeAt(k))) k++;
+    if (k < len && input.charCodeAt(k) === CC_SEMI) {
+      const full = NAMED_ENTITIES.get(input.substring(j, k + 1));
+      if (full !== undefined) return { value: full, length: k + 1 - i };
+    }
+  }
+
+  // Attribute mode: walk the entity trie like the `entities` package. A
+  // semicolon-terminated form wins outright; otherwise we keep the longest
+  // legacy (no-`;`) match, but leave it undecoded ("ambiguous ampersand") when
+  // the trie breaks on `=` / an ASCII alphanumeric, OR breaks at a node that
+  // itself holds no value — which is why `&timesbar` decodes (descends to
+  // `timesbar`, breaks on `"`) but `&ampere` does not (breaks on `e` after `amp`).
+  while (j < len) {
+    const c = input[j];
+    if (c === ';') {
+      const semi = NAMED_ENTITIES.get(name + ';');
+      if (semi !== undefined) return { value: semi, length: j - i + 1 };
+      break; // ';' never extends the trie further
+    }
+    if (name.length >= MAX_ENTITY_NAME_LENGTH) break;
+    const cand = name + c;
+    if (!isEntityPrefix(cand)) break;
+    name = cand;
+    j++;
+    const legacy = NAMED_ENTITIES.get(name);
+    if (legacy !== undefined) {
+      resultValue = legacy;
+      resultLen = j - i;
+    }
+  }
+  if (resultValue === null) return null;
+
+  if (j < len) {
+    const breakCc = input.charCodeAt(j);
+    const nodeHasValue = NAMED_ENTITIES.has(name) || NAMED_ENTITIES.has(name + ';');
+    if (!nodeHasValue || breakCc === CC_EQ || isAsciiAlphaNum(breakCc)) return null;
+  }
+  return { value: resultValue, length: resultLen };
+}
+
+function decodeEntitiesString(s: string, inAttribute: boolean): string {
+  let i = s.indexOf('&');
+  if (i === -1) return s;
+  let out = '';
+  let last = 0;
+  while (i !== -1) {
+    const r = decodeEntity(s, i, inAttribute);
+    if (r) {
+      out += s.slice(last, i) + r.value;
+      i += r.length;
+      last = i;
+    } else {
+      i++;
+    }
+    i = s.indexOf('&', i);
+  }
+  return out + s.slice(last);
 }
 
 // =============================================================================
@@ -294,49 +418,73 @@ const VOID_TAGS = new Set<string>([
   'track', 'wbr'
 ]);
 
+// htmlparser2's special raw-text tags. Only <title> has its entities decoded
+// (it is RCDATA in htmlparser2; the rest are consumed verbatim).
 const RAW_TEXT_TAGS = new Set<string>([
-  'script', 'style', 'textarea', 'xmp', 'title', 'noscript', 'noembed',
-  'noframes', 'iframe', 'plaintext'
+  'script', 'style', 'title', 'textarea', 'xmp'
 ]);
+const RCDATA_DECODE_TAGS = new Set<string>([ 'title' ]);
 
+// Ported verbatim from htmlparser2's `openImpliesClose` map so implicit tag
+// closing matches the original parser exactly.
 const OPEN_IMPLIES_CLOSE: Record<string, Set<string>> = (() => {
   const m: Record<string, Set<string>> = {};
-  const list = (tags: string[], closes: string[]) => {
-    tags.forEach((t) => { m[t] = new Set(closes); });
-  };
-  const pClosers = [
-    'address', 'article', 'aside', 'blockquote', 'details', 'div', 'dl',
-    'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3',
-    'h4', 'h5', 'h6', 'header', 'hgroup', 'hr', 'main', 'menu', 'nav', 'ol',
-    'p', 'pre', 'section', 'table', 'ul'
-  ];
-  list(pClosers, [ 'p' ]);
+  const pTag = [ 'p' ];
+  const formTags = [ 'input', 'option', 'optgroup', 'select', 'button', 'datalist', 'textarea' ];
+  const tableSectionTags = [ 'thead', 'tbody' ];
+  const ddtTags = [ 'dd', 'dt' ];
+  const rtpTags = [ 'rt', 'rp' ];
+  m.tr = new Set([ 'tr', 'th', 'td' ]);
+  m.th = new Set([ 'th' ]);
+  m.td = new Set([ 'thead', 'th', 'td' ]);
+  m.body = new Set([ 'head', 'link', 'script' ]);
   m.li = new Set([ 'li' ]);
-  m.dt = new Set([ 'dt', 'dd' ]);
-  m.dd = new Set([ 'dt', 'dd' ]);
-  m.rb = new Set([ 'rb', 'rt', 'rtc', 'rp' ]);
-  m.rt = new Set([ 'rb', 'rt', 'rp' ]);
-  m.rtc = new Set([ 'rb', 'rt', 'rtc', 'rp' ]);
-  m.rp = new Set([ 'rb', 'rt', 'rp' ]);
-  m.optgroup = new Set([ 'optgroup', 'option' ]);
+  for (const t of [ 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ]) m[t] = new Set(pTag);
+  for (const t of [ 'select', 'input', 'output', 'button', 'datalist', 'textarea' ]) {
+    m[t] = new Set(formTags);
+  }
   m.option = new Set([ 'option' ]);
-  m.tbody = new Set([ 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th' ]);
-  m.tfoot = new Set([ 'thead', 'tbody', 'tr', 'td', 'th' ]);
-  m.thead = new Set([ 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th' ]);
-  m.tr = new Set([ 'tr', 'td', 'th' ]);
-  m.td = new Set([ 'td', 'th' ]);
-  m.th = new Set([ 'td', 'th' ]);
+  m.optgroup = new Set([ 'optgroup', 'option' ]);
+  m.dd = new Set(ddtTags);
+  m.dt = new Set(ddtTags);
+  for (const t of [
+    'address', 'article', 'aside', 'blockquote', 'details', 'div', 'dl',
+    'fieldset', 'figcaption', 'figure', 'footer', 'form', 'header', 'hr',
+    'main', 'nav', 'ol', 'pre', 'section', 'table', 'ul'
+  ]) m[t] = new Set(pTag);
+  m.rt = new Set(rtpTags);
+  m.rp = new Set(rtpTags);
+  m.tbody = new Set(tableSectionTags);
+  m.tfoot = new Set(tableSectionTags);
   return m;
 })();
 
-const NAME_START_RE = /[A-Za-z]/;
-const NAME_RE = /[A-Za-z0-9]/;
-const ATTR_NAME_END_RE = /[\s/>=]/;
 const WS_RE = /\s/;
+
+// charCode predicates for the tokenizer hot loop — these avoid the per-character
+// string allocation of `input[j]` and the regex-engine call. `isWhitespaceCC`
+// reproduces JS `/\s/` EXACTLY (ASCII ws incl. VT, plus the Unicode space
+// separators and NBSP/BOM), so the conversions stay byte-identical.
+function isWhitespaceCC(cc: number): boolean {
+  if (cc === 0x20 || (cc >= 0x09 && cc <= 0x0d)) return true;
+  if (cc < 0xa0) return false;
+  return cc === 0xa0 || cc === 0x1680 || (cc >= 0x2000 && cc <= 0x200a) ||
+    cc === 0x2028 || cc === 0x2029 || cc === 0x202f || cc === 0x205f ||
+    cc === 0x3000 || cc === 0xfeff;
+}
+function isNameStartCC(cc: number): boolean { // /[A-Za-z]/
+  return (cc >= 0x41 && cc <= 0x5a) || (cc >= 0x61 && cc <= 0x7a);
+}
+function isTagNameEndCC(cc: number): boolean { // /[\s/>]/
+  return cc === 0x2f || cc === 0x3e || isWhitespaceCC(cc);
+}
+function isAttrNameEndCC(cc: number): boolean { // /[\s/>=]/
+  return cc === 0x2f || cc === 0x3e || cc === 0x3d || isWhitespaceCC(cc);
+}
 
 interface ParserHandlers {
   onopentag?: (name: string, attribs: Attributes) => void;
-  ontext?: (text: string) => void;
+  ontext?: (text: string, clean?: boolean) => void;
   onclosetag?: (name: string, isImplied: boolean) => void;
   oncomment?: (text: string) => void;
 }
@@ -345,6 +493,10 @@ interface RawAttribute {
   name: string;
   value: string;
 }
+
+// Shared, never-mutated empty attribute list — lets attribute-less tags (the
+// majority: <p>, <li>, <strong>, …) skip allocating a fresh array each.
+const EMPTY_RAW_ATTRS: RawAttribute[] = [];
 
 class Parser {
   private h: ParserHandlers;
@@ -366,11 +518,18 @@ class Parser {
 
   private emitText(text: string, decodeOverride?: boolean): void {
     if (!text) return;
-    if (this.decode && decodeOverride !== false) text = decodeEntitiesString(text);
-    if (this.h.ontext) this.h.ontext(text);
+    // Clean fast-path: text containing none of `& < >` is untouched by BOTH
+    // entity decoding and HTML escaping, so emit it verbatim and tell the
+    // handler to skip escapeHtml — one scan instead of decode+escape's two.
+    if (!ESCAPE_SCAN.test(text)) {
+      if (this.h.ontext) this.h.ontext(text, true);
+      return;
+    }
+    if (this.decode && decodeOverride !== false) text = decodeEntitiesString(text, false);
+    if (this.h.ontext) this.h.ontext(text, false);
   }
 
-  private emitOpen(rawName: string, attribs: RawAttribute[], _selfClosing: boolean): void {
+  private emitOpen(rawName: string, attribs: RawAttribute[], selfClosing: boolean): void {
     const name = this.lowerCaseTags ? rawName.toLowerCase() : rawName;
     if (has(OPEN_IMPLIES_CLOSE, name)) {
       const closers = OPEN_IMPLIES_CLOSE[name];
@@ -383,7 +542,10 @@ class Parser {
     for (const a of attribs) {
       const key = this.lowerCaseAttribs ? a.name.toLowerCase() : a.name;
       if (!(key in attrObj)) {
-        attrObj[key] = this.decode ? decodeEntitiesString(a.value) : a.value;
+        // Skip the decode call entirely when there's no `&` to decode.
+        const v = a.value;
+        attrObj[key] = (this.decode && v.indexOf('&') !== -1)
+          ? decodeEntitiesString(v, true) : v;
       }
     }
     if (this.h.onopentag) this.h.onopentag(name, attrObj);
@@ -391,6 +553,16 @@ class Parser {
     // tag is silently ignored.
     if (VOID_TAGS.has(name)) {
       if (this.h.onclosetag) this.h.onclosetag(name, true);
+      return;
+    }
+    // Inside SVG/MathML (foreign content), `/>` self-closes any element
+    // (e.g. `<animate />`), unlike in the HTML namespace.
+    if (
+      selfClosing &&
+      (name === 'svg' || name === 'math' ||
+        this.stack.indexOf('svg') !== -1 || this.stack.indexOf('math') !== -1)
+    ) {
+      if (this.h.onclosetag) this.h.onclosetag(name, false);
       return;
     }
     this.stack.push(name);
@@ -409,7 +581,16 @@ class Parser {
         return;
       }
     }
-    // Tag not on stack — drop the close event.
+    // Tag not on stack. htmlparser2 synthesizes an element for two cases:
+    //   </p>  with no open <p>  → an empty <p></p>
+    //   </br>                   → <br />
+    if (name === 'p') {
+      this.emitOpen('p', [], false); // opens & pushes <p>
+      this.emitClose('p', true); // immediately closes it
+    } else if (name === 'br') {
+      this.emitOpen('br', [], false); // br is void → emits <br /> and self-closes
+    }
+    // Any other unmatched close tag is dropped.
   }
 
   write(chunk: string): void {
@@ -431,6 +612,9 @@ class Parser {
     let i = 0;
     let textStart = 0;
     this.endIndex = -1;
+    // Lazily lower-cased copy of the whole input, used only to find raw-text
+    // close tags. Computed at most once per parse (not once per <script>/<style>).
+    let lowerInputCache: string | null = null;
 
     const flushText = (until: number, decode?: boolean) => {
       if (until > textStart) {
@@ -442,10 +626,16 @@ class Parser {
     };
 
     while (i < len) {
-      if (input[i] !== '<') { i++; continue; }
-      const next = input[i + 1];
+      // Jump to the next `<` with a native (SIMD-optimized) indexOf instead of a
+      // manual per-char loop — a big win for long plain-text runs.
+      if (input.charCodeAt(i) !== 0x3c) {
+        const lt = input.indexOf('<', i + 1);
+        if (lt === -1) break;
+        i = lt;
+      }
+      const nextCC = input.charCodeAt(i + 1); // 0x21=! 0x3f=? 0x2f=/ 0x2d=-
       // Comment <!-- ... -->
-      if (next === '!' && input.substr(i + 2, 2) === '--') {
+      if (nextCC === 0x21 && input.charCodeAt(i + 2) === 0x2d && input.charCodeAt(i + 3) === 0x2d) {
         flushText(i);
         const end = input.indexOf('-->', i + 4);
         if (end === -1) return;
@@ -455,8 +645,19 @@ class Parser {
         this.endIndex = i;
         continue;
       }
-      // DOCTYPE / processing instruction / CDATA — bogus comment to next '>'.
-      if (next === '!' || next === '?') {
+      // CDATA section <![CDATA[ ... ]]> — discarded in HTML mode (htmlparser2
+      // treats it like a comment ending at ]]>, so its contents never leak).
+      if (nextCC === 0x21 && input.substring(i + 2, i + 9) === '[CDATA[') {
+        flushText(i);
+        const end = input.indexOf(']]>', i + 9);
+        if (end === -1) return;
+        i = end + 3;
+        textStart = i;
+        this.endIndex = i;
+        continue;
+      }
+      // DOCTYPE / processing instruction — bogus comment to next '>'.
+      if (nextCC === 0x21 || nextCC === 0x3f) {
         flushText(i);
         const end = input.indexOf('>', i + 2);
         if (end === -1) return;
@@ -465,12 +666,30 @@ class Parser {
         this.endIndex = i;
         continue;
       }
-      // Closing tag </name>
-      if (next === '/') {
+      // Closing tag </name>. Mirror htmlparser2's "before closing tag name":
+      // skip whitespace, then `>` emits the run as text, a letter starts the
+      // name, and anything else is a bogus comment (discarded to `>`).
+      if (nextCC === 0x2f) {
         flushText(i);
         let j = i + 2;
-        if (j >= len) return;
-        if (!NAME_START_RE.test(input[j])) {
+        while (j < len && isWhitespaceCC(input.charCodeAt(j))) j++;
+        const c = input[j];
+        if (c === undefined) {
+          this.emitText(input.substring(i), false); // `</` at EOF → literal text
+          this.endIndex = len;
+          textStart = len;
+          return;
+        }
+        if (c === '>') {
+          // `</>` / `</ >` → the whole run is emitted as literal text.
+          this.emitText(input.substring(i, j + 1), false);
+          i = j + 1;
+          textStart = i;
+          this.endIndex = i;
+          continue;
+        }
+        if (!isNameStartCC(c.charCodeAt(0))) {
+          // Bogus comment (e.g. `</1>`, `</!>`) — discard through `>`.
           const end = input.indexOf('>', j);
           if (end === -1) return;
           i = end + 1;
@@ -479,7 +698,7 @@ class Parser {
           continue;
         }
         const nameStart = j;
-        while (j < len && !/[\s>/]/.test(input[j])) j++;
+        while (j < len && !isTagNameEndCC(input.charCodeAt(j))) j++;
         const nameEnd = j;
         while (j < len && input[j] !== '>') j++;
         if (j >= len) return;
@@ -490,55 +709,63 @@ class Parser {
         this.endIndex = i;
         continue;
       }
-      // Opening tag <name ...>
-      if (NAME_START_RE.test(next)) {
+      // Opening tag <name ...>  (charCodeAt is NaN past EOF, so a trailing `<`
+      // falls through to the stray-`<` handler, matching the old undefined check)
+      if (isNameStartCC(input.charCodeAt(i + 1))) {
         flushText(i);
         const tokenStart = i;
         let j = i + 1;
         const nameStart = j;
-        while (j < len && NAME_RE.test(input[j])) j++;
+        // Tag name runs until whitespace, `/`, or `>` (matching htmlparser2);
+        // it may contain `:`, `-`, `<`, etc. (e.g. `media:content`, `rdf:RDF`).
+        while (j < len && !isTagNameEndCC(input.charCodeAt(j))) j++;
         const rawName = input.substring(nameStart, j);
-        const attribs: RawAttribute[] = [];
+        let attribs: RawAttribute[] = EMPTY_RAW_ATTRS; // lazily allocated on first attr
         let selfClosing = false;
         let finished = false;
         while (j < len) {
-          while (j < len && WS_RE.test(input[j])) j++;
+          while (j < len && isWhitespaceCC(input.charCodeAt(j))) j++;
           if (j >= len) break;
           const c = input[j];
           if (c === '>') { j++; finished = true; break; }
           if (c === '/') {
             j++;
-            while (j < len && WS_RE.test(input[j])) j++;
+            while (j < len && isWhitespaceCC(input.charCodeAt(j))) j++;
             if (input[j] === '>') {
               selfClosing = true; j++; finished = true; break;
             }
             continue;
           }
           const attrNameStart = j;
-          while (j < len && !ATTR_NAME_END_RE.test(input[j])) j++;
+          while (j < len && !isAttrNameEndCC(input.charCodeAt(j))) j++;
           const attrName = input.substring(attrNameStart, j);
           if (!attrName) {
             j++;
             continue;
           }
-          while (j < len && WS_RE.test(input[j])) j++;
+          while (j < len && isWhitespaceCC(input.charCodeAt(j))) j++;
           let attrValue = '';
           if (input[j] === '=') {
             j++;
-            while (j < len && WS_RE.test(input[j])) j++;
+            while (j < len && isWhitespaceCC(input.charCodeAt(j))) j++;
             if (input[j] === '"' || input[j] === "'") {
               const q = input[j];
               j++;
               const valStart = j;
-              while (j < len && input[j] !== q) j++;
+              // Native scan to the closing quote (faster than a manual loop for
+              // long values like URLs / data URIs).
+              const close = input.indexOf(q, j);
+              j = close === -1 ? len : close;
               attrValue = input.substring(valStart, j);
-              if (input[j] === q) j++;
+              if (j < len) j++; // skip the closing quote
             } else {
               const valStart = j;
-              while (j < len && !WS_RE.test(input[j]) && input[j] !== '>') j++;
+              let vcc: number;
+              while (j < len && (vcc = input.charCodeAt(j)) !== 0x3e && !isWhitespaceCC(vcc)) j++;
               attrValue = input.substring(valStart, j);
             }
           }
+          if (attribs === EMPTY_RAW_ATTRS) attribs = [];
           attribs.push({ name: attrName, value: attrValue });
         }
         if (!finished) {
@@ -560,10 +787,12 @@ class Parser {
         textStart = i;
         this.endIndex = i;
 
-        const tagNameNorm = this.lowerCaseTags ? rawName.toLowerCase() : rawName;
         const rawNameLower = rawName.toLowerCase();
+        const tagNameNorm = this.lowerCaseTags ? rawNameLower : rawName;
         if (!selfClosing && !VOID_TAGS.has(tagNameNorm) && RAW_TEXT_TAGS.has(rawNameLower)) {
-          const lowerInput = input.toLowerCase();
+          // htmlparser2 decodes entities inside <title> (RCDATA) only.
+          const decodeRaw = RCDATA_DECODE_TAGS.has(rawNameLower);
+          const lowerInput = lowerInputCache ?? (lowerInputCache = input.toLowerCase());
           const closeNeedle = '</' + rawNameLower;
           let searchFrom = i;
           let found = -1;
@@ -579,7 +808,7 @@ class Parser {
           }
           if (found === -1) {
             const raw = input.substring(i);
-            if (raw) this.emitText(raw, false);
+            if (raw) this.emitText(raw, decodeRaw);
             this.endIndex = len;
             if (this.stack[this.stack.length - 1] === tagNameNorm) {
               this.stack.pop();
@@ -591,7 +820,7 @@ class Parser {
           }
           if (found > i) {
             const raw = input.substring(i, found);
-            this.emitText(raw, false);
+            this.emitText(raw, decodeRaw);
           }
           let k = found + closeNeedle.length;
           while (k < len && input[k] !== '>') k++;
@@ -628,15 +857,33 @@ class Parser {
 // URL safety helper (replaces launder.naughtyHref)
 // =============================================================================
 
+// Fast-path scans for escapeHtml: only allocate when something needs escaping.
+const ESCAPE_SCAN = /[&<>]/;
+const ESCAPE_SCAN_Q = /[&<>"]/;
+
+// Base URL for parseUrl's relative-URL detection. The long, constant path-segment
+// list is built once at module load instead of on every parseUrl call.
+const PARSE_URL_BASE = (() => {
+  let base = 'relative://relative-site';
+  for (let i = 0; i < 100; i++) base += `/${i}`;
+  return base;
+})();
+
+// eslint-disable-next-line no-control-regex
+const HREF_CONTROL_CHARS_G = /[\x00-\x20]+/g;
+// Hoisted (like HREF_CONTROL_CHARS_G) so naughtyHrefImpl doesn't re-create a
+// RegExp wrapper per href. Both non-global → no lastIndex state to share.
+const HREF_SCHEME_RE = /^([a-zA-Z][a-zA-Z0-9.\-+]*):/;
+const HREF_PROTOCOL_REL_RE = /^[/\\]{2}/;
+
 function cleanHref(href: string): string {
-  // eslint-disable-next-line no-control-regex
-  href = href.replace(/[\x00-\x20]+/g, '');
-  while (true) {
-    const firstIndex = href.indexOf('<!--');
-    if (firstIndex === -1) break;
+  href = href.replace(HREF_CONTROL_CHARS_G, '');
+  let firstIndex = href.indexOf('<!--');
+  while (firstIndex !== -1) {
     const lastIndex = href.indexOf('-->', firstIndex + 4);
     if (lastIndex === -1) break;
     href = href.substring(0, firstIndex) + href.substring(lastIndex + 3);
+    firstIndex = href.indexOf('<!--');
   }
   return href;
 }
@@ -655,9 +902,9 @@ function naughtyHrefImpl(
   const allowProtocolRelative = options.allowProtocolRelative !== false;
   if (typeof href !== 'string') return false;
   href = cleanHref(href);
-  const matches = (href as string).match(/^([a-zA-Z][a-zA-Z0-9.\-+]*):/);
+  const matches = (href as string).match(HREF_SCHEME_RE);
   if (!matches) {
-    if ((href as string).match(/^[/\\]{2}/)) return !allowProtocolRelative;
+    if (HREF_PROTOCOL_REL_RE.test(href as string)) return !allowProtocolRelative;
     return false;
   }
   const scheme = matches[1].toLowerCase();
@@ -676,15 +923,19 @@ interface SrcsetEntry {
   evil?: boolean;
 }
 
+// parse-srcset uses the WHATWG ASCII whitespace set, NOT JS `\s` (which also
+// matches U+00A0 etc.) — so e.g. `&nbsp;` stays part of a candidate URL.
+const SRCSET_WS = /[\t\n\f\r ]/;
+
 function parseSrcset(input: string): SrcsetEntry[] {
   const result: SrcsetEntry[] = [];
   const len = input.length;
   let i = 0;
   while (i < len) {
-    while (i < len && /[\s,]/.test(input[i])) i++;
+    while (i < len && (SRCSET_WS.test(input[i]) || input[i] === ',')) i++;
     if (i >= len) break;
     const urlStart = i;
-    while (i < len && !/\s/.test(input[i])) i++;
+    while (i < len && !SRCSET_WS.test(input[i])) i++;
     let url = input.substring(urlStart, i);
     let hadTrailingComma = false;
     while (url.endsWith(',')) {
@@ -699,11 +950,11 @@ function parseSrcset(input: string): SrcsetEntry[] {
     }
     let invalid = false;
     while (i < len) {
-      while (i < len && /\s/.test(input[i])) i++;
+      while (i < len && SRCSET_WS.test(input[i])) i++;
       if (i >= len) break;
       if (input[i] === ',') { i++; break; }
       const descStart = i;
-      while (i < len && input[i] !== ',' && !/\s/.test(input[i])) i++;
+      while (i < len && input[i] !== ',' && !SRCSET_WS.test(input[i])) i++;
       const desc = input.substring(descStart, i);
       const m = /^([0-9]+(?:\.[0-9]+)?)([wxhWXH])$/.exec(desc);
       if (m) {
@@ -739,8 +990,9 @@ function stringifySrcset(parsed: SrcsetEntry[]): string {
 // =============================================================================
 
 interface StyleDecl {
-  prop: string;
-  value: string;
+  // `undefined` for postcss comment nodes, which stringify as `undefined:undefined`.
+  prop?: string;
+  value?: string;
   important: boolean;
 }
 
@@ -753,48 +1005,136 @@ interface StyleAst {
   nodes: StyleRule[];
 }
 
+/** Remove `/* ... *​/` comments from a string, leaving quoted strings intact. */
+function stripStyleComments(s: string): string {
+  if (s.indexOf('/*') === -1) return s;
+  let out = '';
+  let k = 0;
+  let str: string | null = null;
+  while (k < s.length) {
+    const c = s[k];
+    if (str) {
+      if (c === '\\') { out += s.slice(k, k + 2); k += 2; continue; }
+      if (c === str) str = null;
+      out += c; k++;
+      continue;
+    }
+    if (c === '"' || c === "'") { str = c; out += c; k++; continue; }
+    if (c === '/' && s[k + 1] === '*') {
+      const end = s.indexOf('*/', k + 2);
+      k = (end === -1 ? s.length : end + 2);
+    } else {
+      out += c; k++;
+    }
+  }
+  return out;
+}
+
+/**
+ * Parse an inline `style` value into declarations, reproducing the observable
+ * behaviour of the original sanitize-html's postcss-based parser:
+ *   - property names keep their original case (so case-sensitive `allowedStyles`
+ *     allowlists are honoured — `COLOR` does not match a `color` rule);
+ *   - `/* *​/` comments are stripped; `!important` is recognised with flexible
+ *     whitespace; empty values (`color:`) are preserved;
+ *   - malformed CSS that postcss rejects (unterminated string/comment/paren,
+ *     a trailing `\`, or stray braces) throws, so the caller drops the whole
+ *     attribute rather than keeping a partial parse.
+ */
 function parseStyleAst(name: string, value: string): StyleAst {
   const decls: StyleDecl[] = [];
   const len = value.length;
   let i = 0;
   while (i < len) {
-    while (i < len && (value[i] === ';' || /\s/.test(value[i]))) i++;
-    if (i >= len) break;
-    const propStart = i;
-    while (i < len && value[i] !== ':' && value[i] !== ';') i++;
-    if (i >= len || value[i] === ';') {
-      continue;
-    }
-    const prop = value.substring(propStart, i).trim();
-    i++; // skip ':'
-    while (i < len && /\s/.test(value[i])) i++;
-    const valStart = i;
+    // Scan one declaration up to the next top-level `;`, tracking strings,
+    // parentheses, escapes and comments. Record the first top-level `:`, the
+    // top-level comment ranges, and the bounds of the "real" (non-comment,
+    // non-whitespace) content so we can reproduce postcss's comment nodes.
     let depth = 0;
-    let inString: string | null = null;
+    let str: string | null = null;
+    let colon = -1;
+    let firstReal = -1;
+    let lastReal = -1;
+    const comments: Array<[number, number]> = [];
+    const markReal = (from: number, to: number) => {
+      if (firstReal === -1) firstReal = from;
+      lastReal = to;
+    };
     while (i < len) {
       const c = value[i];
-      if (inString) {
-        if (c === '\\' && i + 1 < len) { i += 2; continue; }
-        if (c === inString) inString = null;
+      if (str) {
+        if (c === '\\') { markReal(i, i + 2); i += 2; continue; }
+        if (c === str) str = null;
+        markReal(i, i + 1);
         i++;
         continue;
       }
-      if (c === '"' || c === "'") { inString = c; i++; continue; }
-      if (c === '(') { depth++; i++; continue; }
-      if (c === ')') { if (depth > 0) depth--; i++; continue; }
+      if (c === '\\') {
+        if (i + 1 >= len) throw new Error('Unexpected trailing backslash');
+        markReal(i, i + 2);
+        i += 2; // escaped char is part of the value (e.g. `\;`)
+        continue;
+      }
+      if (c === '"' || c === "'") { str = c; markReal(i, i + 1); i++; continue; }
+      if (c === '/' && value[i + 1] === '*') {
+        const end = value.indexOf('*/', i + 2);
+        if (end === -1) throw new Error('Unclosed comment');
+        comments.push([i, end + 2]);
+        i = end + 2;
+        continue;
+      }
+      if (c === '(') { depth++; markReal(i, i + 1); i++; continue; }
+      if (c === ')') { if (depth > 0) depth--; markReal(i, i + 1); i++; continue; }
+      // Real inline styles never contain braces; postcss treats these as rule
+      // boundaries (and throws on a stray `}`). Dropping the attribute is the
+      // safe, simplest match.
+      if (c === '{' || c === '}') throw new Error('Unexpected brace in style');
       if (c === ';' && depth === 0) break;
+      if (c === ':' && depth === 0 && colon === -1) {
+        // The first top-level `:` separates prop from value; it is not "real"
+        // content, so an empty value (`color:`) is detected correctly. Later
+        // colons (e.g. IE `filter: progid:…`) are part of the value.
+        colon = i;
+        i++;
+        continue;
+      }
+      if (!WS_RE.test(c)) markReal(i, i + 1);
       i++;
     }
-    let val = value.substring(valStart, i).replace(/\s+$/, '');
-    if (i < len && value[i] === ';') i++;
+    if (str !== null) throw new Error('Unclosed string');
+    if (depth > 0) throw new Error('Unclosed bracket');
+    if (i < len) i++; // consume `;`
+
+    // A segment with no real content is just comments/whitespace: postcss emits
+    // a comment node for each comment (rendered as `undefined:undefined`).
+    if (firstReal === -1) {
+      for (let n = 0; n < comments.length; n++) decls.push({ important: false });
+      continue;
+    }
+    // Comments before the first real char are standalone leading comment nodes.
+    for (const [s] of comments) if (s < firstReal) decls.push({ important: false });
+
+    if (colon === -1 || colon < firstReal) throw new Error('Missing colon in declaration');
+
+    const prop = stripStyleComments(value.substring(firstReal, colon)).trim();
+    if (prop === '' || /\s/.test(prop)) throw new Error('Invalid property name');
+
+    // Value spans to the last real char (empty when the only content after the
+    // colon is comments/whitespace). Internal comments are stripped; trailing
+    // comments after a non-empty value become their own nodes.
+    const hasValue = lastReal > colon;
+    let val = stripStyleComments(value.substring(colon + 1, hasValue ? lastReal : colon + 1))
+      .replace(/^\s+|\s+$/g, '');
     let important = false;
-    const impMatch = val.match(/(\s|^)!important\s*$/i);
+    const impMatch = val.match(/!\s*important\s*$/i);
     if (impMatch) {
       important = true;
-      val = val.substring(0, impMatch.index).replace(/\s+$/, '');
+      val = val.slice(0, impMatch.index).replace(/\s+$/, '');
     }
-    if (prop && val !== '') {
-      decls.push({ prop: prop.toLowerCase(), value: val, important });
+    decls.push({ prop, value: val, important });
+
+    if (hasValue) {
+      for (const [s] of comments) if (s >= lastReal) decls.push({ important: false });
     }
   }
   return { nodes: [ { selector: name, nodes: decls } ] };
@@ -811,10 +1151,98 @@ const mediaTags = [
 const vulnerableTags = [ 'script', 'style' ];
 
 const VALID_HTML_ATTRIBUTE_NAME = /^[^\0\t\n\f\r /<=>]+$/;
+/**
+ * Fast equivalent of `VALID_HTML_ATTRIBUTE_NAME.test(a)`, valid ONLY for names
+ * produced by this file's parser. The parser's attr-name scan (`isAttrNameEndCC`)
+ * already stops at `/ > =` and every whitespace char, so a parser name can never
+ * contain 8 of the regex's 10 forbidden chars — only `\0` and `<` remain to
+ * reject (plus the non-empty requirement). One charCode pass with two compares
+ * beats entering the regex engine. MUST NOT be used on names that bypass the
+ * parser scan (transform- or onOpenTag-injected) — `compileOptions` gates this
+ * behind `parserCleanAttrNames`, and `test/attr-name-fast.test.ts` fuzz-proves
+ * the equivalence end-to-end against the original.
+ */
+function isAttrNameParserClean(a: string): boolean {
+  const len = a.length;
+  if (len === 0) return false;
+  for (let i = 0; i < len; i++) {
+    const c = a.charCodeAt(i);
+    if (c === 0 || c === 60) return false; // \0 or <
+  }
+  return true;
+}
 
 const htmlParserDefaults: ParserOptions = {
   decodeEntities: true
 };
+
+// Stateless helpers (no per-document state) — hoisted to module scope so they
+// are defined once rather than recreated on every sanitize() call.
+
+interface ParsedUrlResult {
+  isRelativeUrl: boolean;
+  url: URL;
+}
+
+function parseUrl(value: string): ParsedUrlResult {
+  value = value.replace(/^(\w+:)?\s*[\\/]\s*[\\/]/, '$1//');
+  if (value.startsWith('relative:')) {
+    throw new Error('relative: exploit attempt');
+  }
+  const parsed = new URL(value, PARSE_URL_BASE);
+  const isRelativeUrl = !!parsed && parsed.hostname === 'relative-site' && parsed.protocol === 'relative:';
+  return { isRelativeUrl, url: parsed };
+}
+
+function filterDeclarations(selectedRule: Record<string, RegExp[]>) {
+  return (acc: StyleDecl[], decl: StyleDecl): StyleDecl[] => {
+    // Comment nodes (undefined prop) are dropped once an allowlist applies.
+    if (decl.prop !== undefined && has(selectedRule, decl.prop)) {
+      const matchesRegex = selectedRule[decl.prop].some((re) => re.test(decl.value ?? ''));
+      if (matchesRegex) acc.push(decl);
+    }
+    return acc;
+  };
+}
+
+function filterCss(ast: StyleAst, allowedStyles: AllowedStyles | undefined): StyleAst {
+  if (!allowedStyles) return ast;
+  const astRules = ast.nodes[0];
+  let selectedRule: Record<string, RegExp[]> | undefined;
+  if (allowedStyles[astRules.selector] && allowedStyles['*']) {
+    selectedRule = deepmerge(
+      allowedStyles[astRules.selector],
+      allowedStyles['*']
+    ) as Record<string, RegExp[]>;
+  } else {
+    selectedRule = allowedStyles[astRules.selector] || allowedStyles['*'];
+  }
+  if (selectedRule) {
+    ast.nodes[0].nodes = astRules.nodes.reduce(filterDeclarations(selectedRule), [] as StyleDecl[]);
+  }
+  return ast;
+}
+
+function stringifyStyleAttributes(filteredAst: StyleAst): string {
+  return filteredAst.nodes[0].nodes
+    .reduce<string[]>((acc, decl) => {
+      acc.push(`${decl.prop}:${decl.value}${decl.important ? ' !important' : ''}`);
+      return acc;
+    }, [])
+    .join(';');
+}
+
+function filterClasses(
+  classes: string,
+  allowed: string[] | false | undefined,
+  allowedGlobs: RegExp[]
+): string {
+  if (!allowed) return classes;
+  return classes.split(/\s+/).filter((clss) => {
+    return allowed.indexOf(clss) !== -1 ||
+      allowedGlobs.some((glob) => glob.test(clss));
+  }).join(' ');
+}
 
 interface Frame {
   tag: string;
@@ -825,62 +1253,63 @@ interface Frame {
   mediaChildren: string[];
   innerText?: string;
   name?: string;
-  updateParentNodeText: () => void;
-  updateParentNodeMediaChildren: () => void;
 }
 
-const sanitizeHtmlFn = function sanitizeHtml(
-  html: string | number | null | undefined,
-  options?: IOptions,
-  _recursing?: boolean
-): string {
-  if (html == null) return '';
-  if (typeof html === 'number') html = html.toString();
-  const inputHtml = html as string;
+// Hoisted out of `makeFrame` so each frame stays a closure-free plain object.
+function updateParentNodeText(stack: Frame[], frame: Frame): void {
+  if (stack.length) {
+    stack[stack.length - 1].text += frame.text;
+  }
+}
+function updateParentNodeMediaChildren(stack: Frame[], frame: Frame): void {
+  if (stack.length && mediaTags.includes(frame.tag)) {
+    stack[stack.length - 1].mediaChildren.push(frame.tag);
+  }
+}
 
-  let result = '';
-  let tempResult = '';
+/**
+ * Everything derived purely from `options` — resolved option set plus the
+ * compiled allow-list maps. Building this is the expensive part, so a `Sanitizer`
+ * does it once and reuses it across every `sanitize()` call.
+ */
+interface CompiledOptions {
+  opts: Required<Defaults> & IOptions;
+  nonTextTagsArray: string[];
+  allowedAttributesMap: Record<string, AllowedAttribute[]> | undefined;
+  allowedAttributesGlobMap: Record<string, RegExp> | undefined;
+  allowedClassesMap: Record<string, string[] | false>;
+  allowedClassesGlobMap: Record<string, RegExp>;
+  allowedClassesRegexMap: Record<string, RegExp[]>;
+  transformTagsMap: Record<string, Transformer>;
+  transformTagsAll: Transformer | undefined;
+  hasTransformTags: boolean;
+  // Precompiled membership sets (built once) to replace per-tag/per-attribute
+  // linear array scans. `allowedTagsSet` is null when allowedTags is `false` or
+  // a string (the latter keeps the original substring `indexOf` semantics).
+  allowedTagsSet: Set<string> | null;
+  schemeAttrSet: Set<string>;
+  emptyAttrSet: Set<string>;
+  nonBooleanAttrSet: Set<string>;
+  nonBooleanAttrStar: boolean;
+  selfClosingSet: Set<string>;
+  // `disallowedTagsMode` is a per-run constant, yet the handlers compared it
+  // against string literals on every tag/text node. Resolve those compares once
+  // here so the hot paths read a boolean. (`modeEscapeOrRecursive` also kills a
+  // per-close-tag `['escape','recursiveEscape'].indexOf(...)` array allocation.)
+  modeDiscardOrCompletely: boolean;
+  modeCompletelyDiscard: boolean;
+  modeEscapeOrRecursive: boolean;
+  modeRecursiveEscape: boolean;
+  // True when every attribute name reaching validation is parser-produced (no
+  // transform/onOpenTag injection), so the fast `isAttrNameParserClean` may
+  // replace the `VALID_HTML_ATTRIBUTE_NAME` regex byte-identically.
+  parserCleanAttrNames: boolean;
+}
 
-  // Resolve options against defaults.
+function compileOptions(options?: IOptions): CompiledOptions {
   const opts: Required<Defaults> & IOptions =
     Object.assign({}, sanitizeHtmlFn.defaults, options) as Required<Defaults> & IOptions;
   opts.parser = Object.assign({}, htmlParserDefaults, opts.parser);
-
-  function makeFrame(tag: string, attribs: Attributes): Frame {
-    const frame: Frame = {
-      tag,
-      attribs: attribs || {},
-      tagPosition: result.length,
-      text: '',
-      openingTagLength: 0,
-      mediaChildren: [],
-      updateParentNodeText() {
-        if (stack.length) {
-          const parentFrame = stack[stack.length - 1];
-          parentFrame.text += frame.text;
-        }
-      },
-      updateParentNodeMediaChildren() {
-        if (stack.length && mediaTags.includes(frame.tag)) {
-          const parentFrame = stack[stack.length - 1];
-          parentFrame.mediaChildren.push(frame.tag);
-        }
-      }
-    };
-    return frame;
-  }
-
-  const tagAllowed = (name: string | undefined): boolean => {
-    if (opts.allowedTags === false) return true;
-    return ((opts.allowedTags as string[] | undefined) || []).indexOf(name as string) > -1;
-  };
-
-  vulnerableTags.forEach((tag) => {
-    if (tagAllowed(tag) && !opts.allowVulnerableTags) {
-      // eslint-disable-next-line no-console
-      console.warn(`\n\n⚠️ Your \`allowedTags\` option includes, \`${tag}\`, which is inherently\nvulnerable to XSS attacks. Please remove it from \`allowedTags\`.\nOr, to disable this warning, add the \`allowVulnerableTags\` option\nand ensure you are accounting for this risk.\n\n`);
-    }
-  });
 
   const nonTextTagsArray = opts.nonTextTags || [
     'script', 'style', 'textarea', 'option', 'xmp'
@@ -951,6 +1380,97 @@ const sanitizeHtmlFn = function sanitizeHtml(
     else transformTagsMap[tag] = transFun;
   });
 
+  const allowedTagsSet = Array.isArray(opts.allowedTags) ? new Set(opts.allowedTags) : null;
+  const schemeAttrSet = new Set(opts.allowedSchemesAppliedToAttributes);
+  const emptyAttrSet = new Set(opts.allowedEmptyAttributes);
+  const nonBooleanAttrSet = new Set(opts.nonBooleanAttributes);
+  const nonBooleanAttrStar = nonBooleanAttrSet.has('*');
+  const selfClosingSet = new Set(opts.selfClosing);
+  const hasTransformTags = Object.keys(transformTagsMap).length > 0;
+
+  const dm = opts.disallowedTagsMode;
+  const modeCompletelyDiscard = dm === 'completelyDiscard';
+  const modeDiscardOrCompletely = dm === 'discard' || modeCompletelyDiscard;
+  const modeRecursiveEscape = dm === 'recursiveEscape';
+  const modeEscapeOrRecursive = dm === 'escape' || modeRecursiveEscape;
+
+  // The fast attr-name validator is only sound when no callback can inject an
+  // attribute name that skipped the parser's scan: `transformTags` (per-tag or
+  // `*`) returning fresh attribs, or `onOpenTag` mutating them. None present →
+  // every validated name is parser-clean.
+  const parserCleanAttrNames = !opts.onOpenTag && !hasTransformTags && !transformTagsAll;
+
+  return {
+    opts, nonTextTagsArray,
+    allowedAttributesMap, allowedAttributesGlobMap,
+    allowedClassesMap, allowedClassesGlobMap, allowedClassesRegexMap,
+    transformTagsMap, transformTagsAll, hasTransformTags,
+    allowedTagsSet, schemeAttrSet, emptyAttrSet, nonBooleanAttrSet, nonBooleanAttrStar,
+    selfClosingSet,
+    modeDiscardOrCompletely, modeCompletelyDiscard, modeEscapeOrRecursive, modeRecursiveEscape,
+    parserCleanAttrNames
+  };
+}
+
+/**
+ * A sanitizer bound to a fixed set of options. Compile the options once, then
+ * call `sanitize()` as many times as you like — ideal for hot paths that reuse
+ * the same configuration across many documents.
+ */
+class Sanitizer {
+  private readonly compiled: CompiledOptions;
+
+  constructor(options?: IOptions) {
+    this.compiled = compileOptions(options);
+  }
+
+  sanitize(html: string | number | null | undefined): string {
+  if (html == null) return '';
+  if (typeof html === 'number') html = html.toString();
+  const inputHtml = html as string;
+
+  let result = '';
+  let tempResult = '';
+
+  const {
+    opts, nonTextTagsArray,
+    allowedAttributesMap, allowedAttributesGlobMap,
+    allowedClassesMap, allowedClassesGlobMap, allowedClassesRegexMap,
+    transformTagsMap, transformTagsAll, hasTransformTags,
+    allowedTagsSet, schemeAttrSet, emptyAttrSet, nonBooleanAttrSet, nonBooleanAttrStar,
+    selfClosingSet,
+    modeDiscardOrCompletely, modeCompletelyDiscard, modeEscapeOrRecursive, modeRecursiveEscape,
+    parserCleanAttrNames
+  } = this.compiled;
+
+  function makeFrame(tag: string, attribs: Attributes): Frame {
+    // Plain data object with a stable shape and NO per-frame closures (the
+    // parent-update helpers are hoisted to module scope) — much less GC churn
+    // on tag-dense documents.
+    return {
+      tag,
+      attribs: attribs || {},
+      tagPosition: result.length,
+      text: '',
+      openingTagLength: 0,
+      mediaChildren: []
+    };
+  }
+
+  const tagAllowed = (name: string | undefined): boolean => {
+    if (opts.allowedTags === false) return true;
+    if (allowedTagsSet) return allowedTagsSet.has(name as string);
+    // Non-array allowedTags (e.g. a string) keeps the original indexOf behaviour.
+    return ((opts.allowedTags as string[] | undefined) || []).indexOf(name as string) > -1;
+  };
+
+  vulnerableTags.forEach((tag) => {
+    if (tagAllowed(tag) && !opts.allowVulnerableTags) {
+      // eslint-disable-next-line no-console
+      console.warn(`\n\n⚠️ Your \`allowedTags\` option includes, \`${tag}\`, which is inherently\nvulnerable to XSS attacks. Please remove it from \`allowedTags\`.\nOr, to disable this warning, add the \`allowVulnerableTags\` option\nand ensure you are accounting for this risk.\n\n`);
+    }
+  });
+
   let depth = 0;
   let stack: Frame[] = [];
   let skipMap: Record<number, boolean> = {};
@@ -974,14 +1494,22 @@ const sanitizeHtmlFn = function sanitizeHtml(
   function escapeHtml(s: string | number | undefined, quote?: boolean): string {
     let str = typeof s !== 'string' ? '' + s : s;
     if (opts.parser?.decodeEntities) {
+      // Fast path: most text/attribute values contain nothing to escape, so a
+      // single scan lets us return the original string with zero allocation.
+      if (quote ? !ESCAPE_SCAN_Q.test(str) : !ESCAPE_SCAN.test(str)) return str;
+      // Entities were decoded at parse time, so every `&` is literal — escape
+      // all of them. Chained native-string `.replace()` passes (callback-free)
+      // beat a single-pass `/[&<>]/g` + function replacer in the full pipeline:
+      // A/B showed the latter flat-to-slightly-worse (its per-match callback cost
+      // on dense decoded-entity text outweighs the fewer-scans win on sparse text).
       str = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      if (quote) str = str.replace(/"/g, '&quot;');
+      return quote ? str.replace(/"/g, '&quot;') : str;
     }
+    // decodeEntities off: preserve already-encoded entities (`&amp;` etc.).
     str = str.replace(/&(?![a-zA-Z0-9#]{1,20};)/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
-    if (quote) str = str.replace(/"/g, '&quot;');
-    return str;
+    return quote ? str.replace(/"/g, '&quot;') : str;
   }
 
   function naughtyHref(name: string, href: string): boolean {
@@ -992,72 +1520,6 @@ const sanitizeHtmlFn = function sanitizeHtml(
       allowedSchemes,
       allowProtocolRelative: opts.allowProtocolRelative
     });
-  }
-
-  interface ParsedUrlResult {
-    isRelativeUrl: boolean;
-    url: URL;
-  }
-
-  function parseUrl(value: string): ParsedUrlResult {
-    value = value.replace(/^(\w+:)?\s*[\\/]\s*[\\/]/, '$1//');
-    if (value.startsWith('relative:')) {
-      throw new Error('relative: exploit attempt');
-    }
-    let base = 'relative://relative-site';
-    for (let i = 0; i < 100; i++) base += `/${i}`;
-    const parsed = new URL(value, base);
-    const isRelativeUrl = !!parsed && parsed.hostname === 'relative-site' && parsed.protocol === 'relative:';
-    return { isRelativeUrl, url: parsed };
-  }
-
-  function filterCss(ast: StyleAst, allowedStyles: AllowedStyles | undefined): StyleAst {
-    if (!allowedStyles) return ast;
-    const astRules = ast.nodes[0];
-    let selectedRule: Record<string, RegExp[]> | undefined;
-    if (allowedStyles[astRules.selector] && allowedStyles['*']) {
-      selectedRule = deepmerge(
-        allowedStyles[astRules.selector],
-        allowedStyles['*']
-      ) as Record<string, RegExp[]>;
-    } else {
-      selectedRule = allowedStyles[astRules.selector] || allowedStyles['*'];
-    }
-    if (selectedRule) {
-      ast.nodes[0].nodes = astRules.nodes.reduce(filterDeclarations(selectedRule), [] as StyleDecl[]);
-    }
-    return ast;
-  }
-
-  function stringifyStyleAttributes(filteredAst: StyleAst): string {
-    return filteredAst.nodes[0].nodes
-      .reduce<string[]>((acc, decl) => {
-        acc.push(`${decl.prop}:${decl.value}${decl.important ? ' !important' : ''}`);
-        return acc;
-      }, [])
-      .join(';');
-  }
-
-  function filterDeclarations(selectedRule: Record<string, RegExp[]>) {
-    return (acc: StyleDecl[], decl: StyleDecl): StyleDecl[] => {
-      if (has(selectedRule, decl.prop)) {
-        const matchesRegex = selectedRule[decl.prop].some((re) => re.test(decl.value));
-        if (matchesRegex) acc.push(decl);
-      }
-      return acc;
-    };
-  }
-
-  function filterClasses(
-    classes: string,
-    allowed: string[] | false | undefined,
-    allowedGlobs: RegExp[]
-  ): string {
-    if (!allowed) return classes;
-    return classes.split(/\s+/).filter((clss) => {
-      return allowed.indexOf(clss) !== -1 ||
-        allowedGlobs.some((glob) => glob.test(clss));
-    }).join(' ');
   }
 
   const parser = new Parser({
@@ -1077,9 +1539,9 @@ const sanitizeHtmlFn = function sanitizeHtml(
       stack.push(frame);
 
       let skip = false;
-      const hasText = !!frame.text;
+      // (frame.text is always '' here — text only arrives via later ontext calls.)
       let transformedTag: TransformResult | undefined;
-      if (has(transformTagsMap, name)) {
+      if (hasTransformTags && has(transformTagsMap, name)) {
         transformedTag = transformTagsMap[name](name, attribs);
         frame.attribs = attribs = transformedTag.attribs;
         if (transformedTag.text !== undefined) {
@@ -1100,11 +1562,11 @@ const sanitizeHtmlFn = function sanitizeHtml(
       }
 
       if (!tagAllowed(name) ||
-        (opts.disallowedTagsMode === 'recursiveEscape' && !isEmptyObject(skipMap)) ||
+        (modeRecursiveEscape && !isEmptyObject(skipMap)) ||
         (opts.nestingLimit != null && depth >= opts.nestingLimit)) {
         skip = true;
         skipMap[depth] = true;
-        if (opts.disallowedTagsMode === 'discard' || opts.disallowedTagsMode === 'completelyDiscard') {
+        if (modeDiscardOrCompletely) {
           if (nonTextTagsArray.indexOf(name) !== -1) {
             skipText = true;
             skipTextDepth = 1;
@@ -1113,8 +1575,8 @@ const sanitizeHtmlFn = function sanitizeHtml(
       }
       depth++;
       if (skip) {
-        if (opts.disallowedTagsMode === 'discard' || opts.disallowedTagsMode === 'completelyDiscard') {
-          if (frame.innerText && !hasText) {
+        if (modeDiscardOrCompletely) {
+          if (frame.innerText) {
             const escaped = escapeHtml(frame.innerText);
             if (opts.textFilter) result += opts.textFilter(escaped, name);
             else result += escaped;
@@ -1133,30 +1595,47 @@ const sanitizeHtmlFn = function sanitizeHtml(
         }
       }
 
-      const isBeingEscaped = skip && (opts.disallowedTagsMode === 'escape' || opts.disallowedTagsMode === 'recursiveEscape');
+      const isBeingEscaped = skip && modeEscapeOrRecursive;
       const shouldPreserveEscapedAttributes = isBeingEscaped && opts.preserveEscapedAttributes;
+      // Resolve `name`'s membership in the attribute allow-map ONCE — it gates the
+      // branch below AND selects this tag's allowed-attr list (was two has() calls).
+      const tagInAttrMap = allowedAttributesMap !== undefined && has(allowedAttributesMap, name);
 
       if (shouldPreserveEscapedAttributes) {
         each(attribs, (value, a) => {
           result += ' ' + a + '="' + escapeHtml(value || '', true) + '"';
         });
-      } else if (!allowedAttributesMap || has(allowedAttributesMap, name) || allowedAttributesMap['*']) {
-        each(attribs, (value, a) => {
-          if (!VALID_HTML_ATTRIBUTE_NAME.test(a)) {
+      } else if (!allowedAttributesMap || tagInAttrMap || allowedAttributesMap['*']) {
+        // Skip all of this when the tag has no attributes (the common case for
+        // <p>/<li>/<strong>/… — avoids 4 map lookups per attribute-less tag).
+        const attrKeys = Object.keys(attribs);
+        if (attrKeys.length) {
+        // These lookups are constant across all of this tag's attributes, so
+        // resolve them once instead of re-doing has()/property access per attr.
+        const tagAttrList = tagInAttrMap
+          ? (allowedAttributesMap![name] as AllowedAttribute[]) : undefined;
+        const starAttrList = allowedAttributesMap
+          ? (allowedAttributesMap['*'] as AllowedAttribute[] | undefined) : undefined;
+        const tagGlob = (allowedAttributesGlobMap && has(allowedAttributesGlobMap, name))
+          ? allowedAttributesGlobMap[name] : undefined;
+        const starGlob = allowedAttributesGlobMap ? allowedAttributesGlobMap['*'] : undefined;
+        for (const a of attrKeys) {
+          let value = attribs[a];
+          if (!(parserCleanAttrNames ? isAttrNameParserClean(a) : VALID_HTML_ATTRIBUTE_NAME.test(a))) {
             delete frame.attribs[a];
-            return;
+            continue;
           }
-          if (value === '' && (!opts.allowedEmptyAttributes.includes(a)) &&
-            (opts.nonBooleanAttributes.includes(a) || opts.nonBooleanAttributes.includes('*'))) {
+          if (value === '' && !emptyAttrSet.has(a) &&
+            (nonBooleanAttrStar || nonBooleanAttrSet.has(a))) {
             delete frame.attribs[a];
-            return;
+            continue;
           }
           let passedAllowedAttributesMapCheck = false;
           if (!allowedAttributesMap ||
-            (has(allowedAttributesMap, name) && (allowedAttributesMap[name] as AllowedAttribute[]).indexOf(a) !== -1) ||
-            (allowedAttributesMap['*'] && (allowedAttributesMap['*'] as AllowedAttribute[]).indexOf(a) !== -1) ||
-            (allowedAttributesGlobMap && has(allowedAttributesGlobMap, name) && allowedAttributesGlobMap[name].test(a)) ||
-            (allowedAttributesGlobMap && allowedAttributesGlobMap['*'] && allowedAttributesGlobMap['*'].test(a))) {
+            (tagAttrList && tagAttrList.indexOf(a) !== -1) ||
+            (starAttrList && starAttrList.indexOf(a) !== -1) ||
+            (tagGlob && tagGlob.test(a)) ||
+            (starGlob && starGlob.test(a))) {
             passedAllowedAttributesMapCheck = true;
           } else if (allowedAttributesMap && allowedAttributesMap[name]) {
             for (const o of allowedAttributesMap[name]) {
@@ -1181,10 +1660,10 @@ const sanitizeHtmlFn = function sanitizeHtml(
             }
           }
           if (passedAllowedAttributesMapCheck) {
-            if (opts.allowedSchemesAppliedToAttributes.indexOf(a) !== -1) {
+            if (schemeAttrSet.has(a)) {
               if (naughtyHref(name, value)) {
                 delete frame.attribs[a];
-                return;
+                continue;
               }
             }
 
@@ -1204,7 +1683,7 @@ const sanitizeHtmlFn = function sanitizeHtml(
               }
               if (!allowed) {
                 delete frame.attribs[a];
-                return;
+                continue;
               }
             }
 
@@ -1228,27 +1707,27 @@ const sanitizeHtmlFn = function sanitizeHtml(
               }
               if (!allowed) {
                 delete frame.attribs[a];
-                return;
+                continue;
               }
             }
 
-            if (a === 'srcset') {
+            if (a === 'srcset' || a === 'imagesrcset') {
               try {
                 let parsed = parseSrcset(value);
                 parsed.forEach((v) => {
-                  if (naughtyHref('srcset', v.url)) v.evil = true;
+                  if (naughtyHref(a, v.url)) v.evil = true;
                 });
                 parsed = filter(parsed, (v) => !v.evil);
                 if (!parsed.length) {
                   delete frame.attribs[a];
-                  return;
+                  continue;
                 } else {
                   value = stringifySrcset(filter(parsed, (v) => !v.evil));
                   frame.attribs[a] = value;
                 }
               } catch {
                 delete frame.attribs[a];
-                return;
+                continue;
               }
             }
 
@@ -1280,7 +1759,7 @@ const sanitizeHtmlFn = function sanitizeHtml(
               }
               if (!value.length) {
                 delete frame.attribs[a];
-                return;
+                continue;
               }
             }
 
@@ -1292,33 +1771,36 @@ const sanitizeHtmlFn = function sanitizeHtml(
                   value = stringifyStyleAttributes(filteredAst);
                   if (value.length === 0) {
                     delete frame.attribs[a];
-                    return;
+                    continue;
                   }
                 } catch {
                   delete frame.attribs[a];
-                  return;
+                  continue;
                 }
               } else if (opts.allowedStyles) {
                 throw new Error('allowedStyles option cannot be used together with parseStyleAttributes: false.');
               }
             }
 
-            result += ' ' + a;
+            // One concatenation per attribute (fewer intermediate rope nodes).
             if (value && value.length) {
-              result += '="' + escapeHtml(value, true) + '"';
-            } else if (opts.allowedEmptyAttributes.includes(a)) {
-              result += '=""';
+              result += ' ' + a + '="' + escapeHtml(value, true) + '"';
+            } else if (emptyAttrSet.has(a)) {
+              result += ' ' + a + '=""';
+            } else {
+              result += ' ' + a;
             }
           } else {
             delete frame.attribs[a];
           }
-        });
+        }
+        }
       }
-      if (opts.selfClosing.indexOf(name) !== -1) {
+      if (selfClosingSet.has(name)) {
         result += ' />';
       } else {
         result += '>';
-        if (frame.innerText && !hasText && !opts.textFilter) {
+        if (frame.innerText && !opts.textFilter) {
           result += escapeHtml(frame.innerText);
           addedText = true;
         }
@@ -1329,28 +1811,32 @@ const sanitizeHtmlFn = function sanitizeHtml(
       }
       frame.openingTagLength = result.length - frame.tagPosition;
     },
-    ontext(text) {
+    ontext(text, clean) {
       if (skipText) return;
       const lastFrame = stack[stack.length - 1];
       let tag: string | undefined;
       if (lastFrame) {
         tag = lastFrame.tag;
-        text = lastFrame.innerText !== undefined ? lastFrame.innerText : text;
+        if (lastFrame.innerText !== undefined) {
+          text = lastFrame.innerText;
+          clean = false; // innerText overrides the source text → re-check on escape
+        }
       }
-      if (opts.disallowedTagsMode === 'completelyDiscard' && !tagAllowed(tag)) {
+      if (modeCompletelyDiscard && !tagAllowed(tag)) {
         text = '';
-      } else if ((opts.disallowedTagsMode === 'discard' || opts.disallowedTagsMode === 'completelyDiscard') && (tag === 'script' || tag === 'style')) {
+      } else if (modeDiscardOrCompletely && (tag === 'script' || tag === 'style')) {
         result += text;
-      } else if ((opts.disallowedTagsMode === 'discard' || opts.disallowedTagsMode === 'completelyDiscard') && (tag === 'textarea' || tag === 'xmp')) {
+      } else if (modeDiscardOrCompletely && (tag === 'textarea' || tag === 'xmp')) {
         result += text;
       } else if (!addedText) {
-        const escaped = escapeHtml(text, false);
+        // `clean` (set by emitText) means the text has no &/</> → escapeHtml is a no-op.
+        const escaped = clean ? text : escapeHtml(text, false);
         if (opts.textFilter) result += opts.textFilter(escaped, tag);
         else result += escaped;
       }
-      if (stack.length) {
-        const frame = stack[stack.length - 1];
-        frame.text += text;
+      // lastFrame is already stack[stack.length - 1] (the stack is unchanged here).
+      if (lastFrame) {
+        lastFrame.text += text;
       }
     },
     onclosetag(name, isImplied) {
@@ -1377,8 +1863,8 @@ const sanitizeHtmlFn = function sanitizeHtml(
       const skip = skipMap[depth];
       if (skip) {
         delete skipMap[depth];
-        if (opts.disallowedTagsMode === 'discard' || opts.disallowedTagsMode === 'completelyDiscard') {
-          frame.updateParentNodeText();
+        if (modeDiscardOrCompletely) {
+          updateParentNodeText(stack, frame);
           return;
         }
         tempResult = result;
@@ -1406,12 +1892,12 @@ const sanitizeHtmlFn = function sanitizeHtml(
         }
       }
 
-      frame.updateParentNodeMediaChildren();
-      frame.updateParentNodeText();
+      updateParentNodeMediaChildren(stack, frame);
+      updateParentNodeText(stack, frame);
 
       if (
-        opts.selfClosing.indexOf(name) !== -1 ||
-        (isImplied && !tagAllowed(name) && [ 'escape', 'recursiveEscape' ].indexOf(opts.disallowedTagsMode as string) >= 0)
+        selfClosingSet.has(name) ||
+        (isImplied && !tagAllowed(name) && modeEscapeOrRecursive)
       ) {
         if (skip) {
           result = tempResult;
@@ -1432,7 +1918,7 @@ const sanitizeHtmlFn = function sanitizeHtml(
   parser.write(inputHtml);
   parser.end();
 
-  if (opts.disallowedTagsMode === 'escape' || opts.disallowedTagsMode === 'recursiveEscape') {
+  if (modeEscapeOrRecursive) {
     const lastParsedIndex = parser.endIndex;
     if (lastParsedIndex != null && lastParsedIndex >= 0 && lastParsedIndex < inputHtml.length) {
       const unparsed = inputHtml.substring(lastParsedIndex);
@@ -1443,6 +1929,35 @@ const sanitizeHtmlFn = function sanitizeHtml(
   }
 
   return result;
+  }
+}
+
+const sanitizerCache = new WeakMap<object, Sanitizer>();
+let defaultSanitizer: Sanitizer | undefined;
+
+/**
+ * Functional API — a thin, drop-in-compatible wrapper over `Sanitizer`. The
+ * compiled options are cached per options object, so repeated calls that reuse
+ * the same configuration skip recompilation.
+ */
+const sanitizeHtmlFn = function sanitizeHtml(
+  html: string | number | null | undefined,
+  options?: IOptions,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _recursing?: boolean
+): string {
+  let sanitizer: Sanitizer;
+  if (options == null) {
+    sanitizer = (defaultSanitizer ??= new Sanitizer());
+  } else {
+    let cached = sanitizerCache.get(options);
+    if (cached === undefined) {
+      cached = new Sanitizer(options);
+      sanitizerCache.set(options, cached);
+    }
+    sanitizer = cached;
+  }
+  return sanitizer.sanitize(html);
 } as SanitizeHtml;
 
 // =============================================================================
@@ -1513,7 +2028,14 @@ sanitizeHtmlFn.defaults = {
   selfClosing: [ 'img', 'br', 'hr', 'area', 'base', 'basefont', 'input', 'link', 'meta' ],
   allowedSchemes: [ 'http', 'https', 'ftp', 'mailto', 'tel' ],
   allowedSchemesByTag: {},
-  allowedSchemesAppliedToAttributes: [ 'href', 'src', 'cite' ],
+  allowedSchemesAppliedToAttributes: [
+    'href', 'src', 'cite',
+    'action', 'formaction', 'data', 'xlink:href',
+    'poster', 'background', 'ping',
+    'longdesc', 'usemap', 'codebase', 'classid', 'archive',
+    'profile', 'manifest', 'itemid',
+    'dynsrc', 'lowsrc'
+  ],
   allowProtocolRelative: true,
   enforceHtmlBoundary: false,
   parseStyleAttributes: true,
@@ -1538,4 +2060,12 @@ sanitizeHtmlFn.simpleTransform = function (newTagName: string, newAttribs?: Attr
 const sanitizeHtml = sanitizeHtmlFn;
 
 export default sanitizeHtml;
-export { sanitizeHtml };
+export { sanitizeHtml, Sanitizer };
+
+/**
+ * @internal Not part of the public API — exposed only so the test suite can
+ * prove the fast attribute-name validator (`isAttrNameParserClean`) is identical
+ * to the canonical `VALID_HTML_ATTRIBUTE_NAME` regex on every parser-producible
+ * name. Do not use; may change or disappear without notice.
+ */
+export const __internal = { isAttrNameParserClean, VALID_HTML_ATTRIBUTE_NAME };

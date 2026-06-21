@@ -1,0 +1,15 @@
+html5lib-tests — vendored conformance suite (the parser oracle for `.` main)
+
+Source : https://github.com/html5lib/html5lib-tests
+Pinned : 9fb614afaa42ce8787840f057b32084308e76549
+Vendored: 2026-06-21
+
+Re-sync cadence: RARE. HTML tokenization is settled — the tokenizer/ tests have
+been frozen since ~2021 (only typo fixes since 2023). tree-construction/ changes
+a few times a year, always spec-driven (e.g. the 2025–2026 <select>/<option>/
+void-element parser relaxations). Re-pull quarterly or when a parsing-spec change
+lands; bump the SHA above and re-run the conformance harness.
+
+To re-sync:
+  base=https://raw.githubusercontent.com/html5lib/html5lib-tests/<sha>
+  curl -sS "$base/tokenizer/<file>.test" -o test/fixtures/html5lib/tokenizer/<file>.test

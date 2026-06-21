@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import sanitizeHtml from '../src/index';
+import sanitizeHtml from '../src/legacy/index';
 
 describe('sanitizeHtml', () => {
   it('should escape self closing tags', () => {

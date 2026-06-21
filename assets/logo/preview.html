@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>neosanitize — logo</title>
+<style>
+  :root { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { margin: 0; background: #eceaf1; color: #2a2733; padding: 36px; }
+  h1 { font-size: 16px; margin: 0 0 2px; }
+  .sub { color: #6a667a; font-size: 13px; margin: 0 0 8px; }
+  .lab { font-weight: 600; color: #4a4658; margin: 30px 0 14px; font-size: 13px; }
+  .line { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .t { display: flex; align-items: center; justify-content: center; border-radius: 16px; }
+  .light { background: #fff; width: 104px; height: 104px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .dark { background: #14121a; width: 104px; height: 104px; }
+  .chip { background: #fff; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.1); display:flex; align-items:center; justify-content:center; }
+  .chipd { background: #14121a; border-radius: 8px; display:flex; align-items:center; justify-content:center; }
+  .lock { display: flex; align-items: center; gap: 12px; font-weight: 680; font-size: 30px; letter-spacing: -.022em; }
+  .lock .neo { color: #7c3aed; }
+  .lockwrap.d { background: #14121a; padding: 16px 24px; border-radius: 14px; display: inline-flex; color: #f2f0f7; }
+  .lockwrap.d .neo { color: #a78bfa; }
+  img { display: block; }
+</style>
+</head>
+<body>
+  <h1>neosanitize — logo</h1>
+  <p class="sub">A single stroke that is both a checkmark (verified / safe) and a <code>&gt;</code> chevron (markup), with a path node at the pivot — one mark, dual meaning.</p>
+
+  <div class="lab">The mark — light, dark, favicon ramp (48 / 32 / 20 / 16)</div>
+  <div class="line">
+    <div class="t light"><img src="../logo.svg" width="76" height="76" alt=""></div>
+    <div class="t dark"><img src="../logo.svg" width="76" height="76" alt=""></div>
+    <div class="chip" style="width:48px;height:48px"><img src="../logo.svg" width="44" height="44" alt=""></div>
+    <div class="chip" style="width:32px;height:32px"><img src="../logo.svg" width="30" height="30" alt=""></div>
+    <div class="chip" style="width:22px;height:22px"><img src="../logo.svg" width="20" height="20" alt=""></div>
+    <div class="chipd" style="width:22px;height:22px"><img src="../logo.svg" width="20" height="20" alt=""></div>
+  </div>
+
+  <div class="lab">Lockup</div>
+  <div class="line">
+    <div class="lock"><img src="../logo.svg" width="32" height="32" alt=""><span><span class="neo">neo</span>sanitize</span></div>
+    <div class="lockwrap d"><div class="lock"><img src="../logo.svg" width="32" height="32" alt=""><span><span class="neo">neo</span>sanitize</span></div></div>
+  </div>
+
+  <div class="lab">Variant — plain (no node), for very small / monochrome contexts</div>
+  <div class="line">
+    <div class="t light"><img src="logo-plain.svg" width="76" height="76" alt=""></div>
+    <div class="t dark"><img src="logo-plain.svg" width="76" height="76" alt=""></div>
+    <div class="chip" style="width:22px;height:22px"><img src="logo-plain.svg" width="20" height="20" alt=""></div>
+  </div>
+</body>
+</html>
