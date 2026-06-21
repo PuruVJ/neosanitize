@@ -10,6 +10,7 @@ export default defineConfig({
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/logo.svg' }],
     ['meta', { name: 'theme-color', content: '#8b5cf6' }],
     ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:url', content: 'https://neosanitize.puruvj.dev/' }],
     ['meta', { property: 'og:title', content: 'neosanitize' }],
     [
       'meta',
@@ -19,6 +20,20 @@ export default defineConfig({
           'Zero-dependency, browser-faithful HTML sanitizer. Deny-by-default, ~2.3× faster than sanitize-html, ~3 KB in the browser, zero mXSS holes in 20k fuzz.',
       },
     ],
+    ['meta', { property: 'og:image', content: 'https://neosanitize.puruvj.dev/og.png' }],
+    ['meta', { property: 'og:image:width', content: '1200' }],
+    ['meta', { property: 'og:image:height', content: '630' }],
+    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
+    ['meta', { name: 'twitter:title', content: 'neosanitize' }],
+    [
+      'meta',
+      {
+        name: 'twitter:description',
+        content:
+          'Zero-dependency, browser-faithful HTML sanitizer. Deny-by-default, ~2.3× faster than sanitize-html, ~3 KB in the browser.',
+      },
+    ],
+    ['meta', { name: 'twitter:image', content: 'https://neosanitize.puruvj.dev/og.png' }],
   ],
   themeConfig: {
     logo: '/logo.svg',
