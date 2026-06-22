@@ -13,14 +13,11 @@
 export * from './core';
 
 import { SanitizerCore, type ParseAdapter, type Policy } from './core';
-import { TreeBuilder } from './parser/tree-builder';
+import { whatwgAdapter } from './whatwg-parser';
 
-/**
- * The default parse adapter, our bundled, browser-faithful WHATWG parser. Used
- * automatically by the default `Sanitizer`; also exported so you can pass it
- * explicitly, e.g. to force it in the browser build via `.parser(whatwgAdapter)`.
- */
-export const whatwgAdapter: ParseAdapter = (html) => new TreeBuilder(html).parse();
+// The default parse adapter. Re-exported from the whatwg-parser module so the
+// same import works in a browser bundle (where `.` resolves to the DOMParser build).
+export { whatwgAdapter };
 
 /**
  * The default `Sanitizer`: parses untrusted HTML with the bundled WHATWG parser,

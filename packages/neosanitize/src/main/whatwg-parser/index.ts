@@ -1,36 +1,34 @@
 /**
- * `neosanitize/whatwg-parser` — the browser-faithful WHATWG parse tree, exposed.
+ * `neosanitize/whatwg-parser`: the browser-faithful WHATWG parse tree, exposed.
  *
- * This is the *same* tokenizer + tree construction the main sanitizer runs on
- * (100% html5lib tokenizer conformance) — and the same parser the default
- * `whatwgAdapter` uses — without any policy or filtering. Use it to read, query,
- * and re-serialize HTML exactly as a browser would build it — zero deps, no DOM.
+ * Same tokenizer and tree construction the main sanitizer runs on (100% html5lib
+ * tokenizer conformance), without any policy or filtering. Read, query, and
+ * re-serialize HTML the way a browser would build it. Zero deps, no DOM.
  *
- * ```ts
- * import { parse, findAll, textContent, serialize } from 'neosanitize/whatwg-parser';
+ *   import { parse, findAll, textContent, serialize } from 'neosanitize/whatwg-parser';
  *
- * const doc = parse('<main><a href="/x">one</a><a href="/y">two</a></main>');
- * findAll(doc, 'a').map((a) => a.attrs.find(([k]) => k === 'href')?.[1]); // ['/x','/y']
- * textContent(doc);                                                       // 'onetwo'
- * serialize(doc);  // round-trips to the normalized HTML the browser would produce
- * ```
- *
- * `parse()` builds a full document (with the implied `<html>/<head>/<body>`),
- * just like `new DOMParser().parseFromString(html, 'text/html')`.
+ * `parse()` builds a full document (implied `<html>/<head>/<body>`), like
+ * `new DOMParser().parseFromString(html, 'text/html')`.
  */
 import { TreeBuilder } from '../parser/tree-builder';
 import type { DocumentNode, ElementNode, ParentNode, TreeNode } from '../parser/tree-builder';
 
 export type { DocumentNode, ElementNode, TextNode, CommentNode, DoctypeNode, TreeNode, ParentNode, NS } from '../parser/tree-builder';
 
-/**
- * Parse HTML into the WHATWG tree a browser would build. Returns a full
- * `DocumentNode` (implied `<html>/<head>/<body>` included), matching
- * `DOMParser.parseFromString(html, 'text/html')`.
- */
+/** Parse HTML into the full WHATWG document tree a browser would build. */
 export function parse(html: string): DocumentNode {
 	return new TreeBuilder(html).parse();
 }
+
+/**
+ * The bundled WHATWG parser as a parse adapter. Import it from here (not from
+ * `neosanitize`) when you need it in a browser bundle: the `.` browser export
+ * resolves to the DOMParser build, which does not carry this adapter.
+ *
+ *   import { whatwgAdapter } from 'neosanitize/whatwg-parser';
+ *   Sanitizer.builder(ugc).parser(whatwgAdapter).build();
+ */
+export const whatwgAdapter = parse;
 
 // --- serialization (policy-free; faithful HTML output) ----------------------
 const VOID_ELEMENTS = new Set(['area', 'base', 'basefont', 'bgsound', 'br', 'col', 'command', 'embed', 'frame', 'hr', 'img', 'input', 'isindex', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr']);

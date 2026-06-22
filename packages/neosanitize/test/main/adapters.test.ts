@@ -7,6 +7,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { Sanitizer, whatwgAdapter } from '../../src/main/index';
+import { whatwgAdapter as whatwgAdapterFromModule } from '../../src/main/whatwg-parser';
 import { parse5Adapter } from '../../src/main/parse5';
 import { htmlparser2Adapter } from '../../src/main/htmlparser2';
 
@@ -49,6 +50,12 @@ describe('parse-adapter system', () => {
       });
     });
   }
+
+  it('whatwgAdapter is importable from neosanitize/whatwg-parser (browser-safe path)', () => {
+    expect(typeof whatwgAdapterFromModule).toBe('function');
+    const out = Sanitizer.builder(policy).parser(whatwgAdapterFromModule).build().sanitize('<p class="x">hi</p>');
+    expect(out).toBe('<p class="x">hi</p>');
+  });
 
   it('.parser(null) restores the environment default', () => {
     const out = Sanitizer.builder(policy).parser(parse5Adapter).parser(null).build()

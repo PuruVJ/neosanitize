@@ -18,12 +18,15 @@ Every entry ships an environment-appropriate default, and you can override it pe
 Both are exported, so you can also pass them explicitly:
 
 ```ts
-import { Sanitizer, whatwgAdapter } from 'neosanitize';
+import { Sanitizer } from 'neosanitize';
+import { whatwgAdapter } from 'neosanitize/whatwg-parser';
 import { domParserAdapter } from 'neosanitize/browser';
 
-// Force the bundled WHATWG parser even in a browser bundle:
+// Force the bundled WHATWG parser, even inside a browser bundle:
 const s = Sanitizer.builder(ugc).parser(whatwgAdapter).build();
 ```
+
+Import `whatwgAdapter` from `neosanitize/whatwg-parser`, not from `neosanitize`. In a browser bundle the `.` export resolves to the DOMParser build, which only carries `domParserAdapter`. (For convenience `neosanitize` also re-exports `whatwgAdapter` in Node, but the `neosanitize/whatwg-parser` import works everywhere.)
 
 Pass `null` to restore the environment default: `.parser(null)`.
 
