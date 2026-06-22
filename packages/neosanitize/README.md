@@ -148,6 +148,27 @@ Because parsing is the browser's own, the browser build is byte-for-byte what th
 
 ---
 
+## Parser adapters
+
+The main engine's parser is **pluggable**. Each entry has an environment default (the bundled WHATWG parser in Node, native `DOMParser` in the browser), and you can override it per-`Sanitizer` with `.parser(adapter)` — keeping the exact same deny-by-default policy + serializer, swapping only how HTML becomes a tree:
+
+```ts
+import { Sanitizer } from 'neosanitize';
+import { parse5Adapter } from 'neosanitize/parse5';        // npm i parse5      (optional peer)
+import { htmlparser2Adapter } from 'neosanitize/htmlparser2'; // npm i htmlparser2 (optional peer)
+
+Sanitizer.builder(ugc).parser(parse5Adapter).build();      // 100% spec-conformant tree
+Sanitizer.builder(ugc).parser(htmlparser2Adapter).build(); // fast & lenient (sanitize-html's parser)
+```
+
+- **`ours` (default)** — fastest, browser-faithful, zero-dependency. Tokenizer 100% / tree ~95.6% html5lib.
+- **`parse5`** — the reference WHATWG parser; pick it for **full spec conformance** on degenerate/adversarial markup (≈0.5× the speed).
+- **`htmlparser2`** — very fast and forgiving, but not a full WHATWG tree builder (no foster-parenting / foreign-content namespacing).
+
+Both optional adapters are peer dependencies — nothing is pulled in unless you import them. Write your own with `type ParseAdapter = (html: string) => ParentNode`. Full guide + benchmarks: [neosanitize.puruvj.dev/adapters](https://neosanitize.puruvj.dev/adapters).
+
+---
+
 ## Legacy drop-in
 
 Identical API and output to `sanitize-html` 2.x:
@@ -166,12 +187,12 @@ It reimplements `sanitize-html`'s three parsers — `htmlparser2`, `parse-srcset
 
 ---
 
-## Parsing — `neosanitize/parse`
+## Parsing — `neosanitize/whatwg-parser`
 
-Need the tree, not the sanitizer? `neosanitize/parse` exposes the **same browser-faithful WHATWG parser**, policy-free — zero-dep, no DOM. The tree is what a browser builds (misnesting, foster parenting, the adoption agency, all handled), and `parse()` returns a full document just like `DOMParser.parseFromString(html, 'text/html')`.
+Need the tree, not the sanitizer? `neosanitize/whatwg-parser` exposes the **same browser-faithful WHATWG parser**, policy-free — zero-dep, no DOM. The tree is what a browser builds (misnesting, foster parenting, the adoption agency, all handled), and `parse()` returns a full document just like `DOMParser.parseFromString(html, 'text/html')`.
 
 ```ts
-import { parse, findAll, textContent, serialize } from 'neosanitize/parse';
+import { parse, findAll, textContent, serialize } from 'neosanitize/whatwg-parser';
 
 const doc = parse('<main><a href="/x">one</a><a href="/y">two</a></main>');
 findAll(doc, 'a').map((a) => a.attrs.find(([k]) => k === 'href')?.[1]); // ['/x','/y']
@@ -179,7 +200,7 @@ textContent(doc); // 'onetwo'
 serialize(doc);   // round-trips to the normalized HTML the browser would produce
 ```
 
-`parse`, `serialize`, `find`/`findAll` (tag name or predicate), `walk`, `textContent`. It's a parse tree + helpers, not a full DOM — see the [parsing guide](https://neosanitize.puruvj.dev/parse).
+`parse`, `serialize`, `find`/`findAll` (tag name or predicate), `walk`, `textContent`. It's a parse tree + helpers, not a full DOM — see the [parsing guide](https://neosanitize.puruvj.dev/whatwg-parser).
 
 ---
 

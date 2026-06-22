@@ -165,7 +165,7 @@ console.log(
 );
 console.log(
   `parity:  ${rows.length - mismatches}/${rows.length} scenarios byte-identical` +
-    (mismatches ? `  ·  ${mismatches} differ (see table — compared fairly, just flagged)` : '')
+    (mismatches ? `  ·  ${mismatches} differ (see table, compared fairly, just flagged)` : '')
 );
 console.log(
   '\nspeedup > 1.0 means neosanitize is faster. ▲ faster · ▼ slower · ≈ within ±5%.\n'

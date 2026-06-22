@@ -39,36 +39,35 @@ export default defineConfig({
     logo: '/logo.svg',
     nav: [
       { text: 'Guide', link: '/guide' },
-      { text: 'Parse', link: '/parse' },
+      { text: 'Sanitizing', link: '/sanitizing' },
+      { text: 'Adapters', link: '/adapters' },
       { text: 'Legacy', link: '/legacy' },
       { text: 'Performance', link: '/performance' },
-      { text: 'Security', link: '/security' },
       { text: 'npm', link: 'https://www.npmjs.com/package/neosanitize' },
     ],
     sidebar: [
       {
         text: 'Getting started',
-        items: [
-          { text: 'Introduction', link: '/guide' },
-          { text: 'Which engine?', link: '/guide#which-engine' },
-        ],
+        items: [{ text: 'Introduction', link: '/guide' }],
+      },
+      {
+        text: 'Drop-in',
+        items: [{ text: 'Legacy', link: '/legacy' }],
       },
       {
         text: 'Main engine',
-        items: [
-          { text: 'Sanitizing', link: '/sanitizing' },
-          { text: 'Presets', link: '/sanitizing#presets' },
-          { text: 'Output targets', link: '/sanitizing#output-targets' },
-          { text: 'Report mode', link: '/sanitizing#report-mode' },
-          { text: 'Safe baseline', link: '/sanitizing#safe-baseline' },
-          { text: 'Browser build', link: '/sanitizing#browser-build' },
-        ],
+        items: [{ text: 'Sanitizing', link: '/sanitizing' }],
       },
       {
-        text: 'Subpath modules',
+        text: 'Parsing',
+        items: [{ text: 'WHATWG parser', link: '/whatwg-parser' }],
+      },
+      {
+        text: 'Parser adapters',
         items: [
-          { text: 'neosanitize/parse', link: '/parse' },
-          { text: 'neosanitize/legacy', link: '/legacy' },
+          { text: 'Adapter system', link: '/adapters' },
+          { text: 'parse5 adapter', link: '/adapters/parse5' },
+          { text: 'htmlparser2 adapter', link: '/adapters/htmlparser2' },
         ],
       },
       {
@@ -79,7 +78,7 @@ export default defineConfig({
         ],
       },
     ],
-    socialLinks: [{ icon: 'github', link: 'https://github.com/' }],
+    socialLinks: [{ icon: 'github', link: 'https://github.com/PuruVJ/neosanitize' }],
     search: { provider: 'local' },
     footer: {
       message: 'Released under the MIT License.',

@@ -1,11 +1,11 @@
 /**
- * neosanitize — browser entry (resolved via the package's `browser` export
+ * neosanitize, browser entry (resolved via the package's `browser` export
  * condition; also reachable explicitly as `neosanitize/browser`).
  *
  * Parses untrusted HTML with the PLATFORM parser (native `DOMParser`) instead of
  * the bundled WHATWG parser, then runs the EXACT same engine-core policy over the
  * resulting tree. Two wins:
- *   1. The browser bundle ships ZERO parser bytes — the tokenizer + tree-builder
+ *   1. The browser bundle ships ZERO parser bytes, the tokenizer + tree-builder
  *      (the bulk of the engine) are never imported here, only the policy core.
  *   2. Parsing is, by construction, byte-for-byte what the user's own browser
  *      would do, which closes parser-differential / mutation-XSS gaps for free.
@@ -15,32 +15,42 @@
  */
 export * from './core';
 
-import { SanitizerCore } from './core';
+import { SanitizerCore, type ParseAdapter, type Policy } from './core';
 import type { ElementNode, ParentNode, TreeNode, NS } from './core';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const MATHML_NS = 'http://www.w3.org/1998/Math/MathML';
 
 /**
- * Browser `Sanitizer` — uses native `DOMParser`. Build one with
- * `Sanitizer.builder()`. Throws if loaded without a DOM (in Node, import the
- * default `neosanitize` entry instead, which bundles the WHATWG parser).
+ * The browser default parse adapter, native `DOMParser`. Ships zero parser bytes
+ * (the platform already has one) and parses byte-for-byte what the user's browser
+ * would. Used automatically by the browser `Sanitizer`; also exported so you can
+ * pass it to any `Sanitizer` via `.parser(domParserAdapter)` where a DOM exists.
+ */
+export const domParserAdapter: ParseAdapter = (html) => {
+  if (typeof DOMParser === 'undefined') {
+    throw new Error('neosanitize/browser: no DOM available (DOMParser is undefined). In Node, import the default "neosanitize" entry, which bundles the parser.');
+  }
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const root: ParentNode = { type: 'document', children: [] };
+  if (doc.documentElement) root.children.push(domToNode(doc.documentElement));
+  return root;
+};
+
+/**
+ * Browser `Sanitizer`, defaults to native `DOMParser`. Build one with
+ * `Sanitizer.builder()`. Override the parser with `.parser(adapter)`, e.g.
+ * `whatwgAdapter` to force the bundled parser, or `parse5Adapter`.
  */
 export class Sanitizer extends SanitizerCore {
-  protected parse(html: string): ParentNode {
-    if (typeof DOMParser === 'undefined') {
-      throw new Error('neosanitize/browser: no DOM available (DOMParser is undefined). In Node, import the default "neosanitize" entry, which bundles the parser.');
-    }
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const root: ParentNode = { type: 'document', children: [] };
-    if (doc.documentElement) root.children.push(domToNode(doc.documentElement));
-    return root;
+  constructor(policy?: Policy, parser: ParseAdapter | null = null) {
+    super(policy, domParserAdapter, parser);
   }
 }
 
 /**
- * Convert a native DOM element subtree into the engine-core node shape — the same
- * plain `{type,name,attrs,children}` tree the custom parser produces — so the
+ * Convert a native DOM element subtree into the engine-core node shape, the same
+ * plain `{type,name,attrs,children}` tree the custom parser produces, so the
  * policy + serializer are reused verbatim (zero security-logic fork per env).
  */
 function domToNode(el: Element): ElementNode {
@@ -69,7 +79,7 @@ function domToNode(el: Element): ElementNode {
     const t = c.nodeType;
     if (t === 1) children.push(domToNode(c as Element));
     else if (t === 3) children.push({ type: 'text', value: (c as CharacterData).data, parent: null });
-    // comments (8) and others are dropped — the serializer drops them anyway.
+    // comments (8) and others are dropped, the serializer drops them anyway.
     // (CDATA sections / nodeType 4 never occur via parseFromString(html,'text/html').)
   }
   return { type: 'element', name: el.localName, namespace: ns, attrs, children, parent: null };

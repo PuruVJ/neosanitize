@@ -7,7 +7,7 @@
  * NOTE on fairness: original + legacy share the SAME options and produce
  * byte-identical output (that parity is asserted by bench/index.mjs). The main
  * engine is deny-by-default with its own (browser-faithful) parser and output
- * model, so its result is NOT byte-identical — this measures THROUGHPUT on the
+ * model, so its result is NOT byte-identical, this measures THROUGHPUT on the
  * same input bytes, with main configured to a rich UGC-ish allow-list so it does
  * real keep/filter/serialize work (not a degenerate drop-everything fast path).
  *
@@ -102,3 +102,24 @@ console.log(
   `main vs legacy: geomean ${geomean(rows.map((r) => r.m / r.l)).toFixed(2)}×`
 );
 console.log('(>1× = main faster. main does a full WHATWG parse + deny-by-default policy + serialize.)\n');
+
+if (process.argv.includes('--json')) {
+  const { writeFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { dirname, join } = await import('node:path');
+  const dir = dirname(fileURLToPath(import.meta.url));
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    node: process.version,
+    msPerTask: TIME,
+    engines: ['original', 'legacy', 'modern'],
+    summary: {
+      original: 1,
+      legacy: +geomean(rows.map((r) => r.l / r.o)).toFixed(2),
+      modern: +geomean(rows.map((r) => r.m / r.o)).toFixed(2),
+    },
+    scenarios: rows.map((r) => ({ name: r.name, bytes: r.size, ops: { original: r.o, legacy: r.l, modern: r.m } })),
+  };
+  writeFileSync(join(dir, 'three-way.json'), JSON.stringify(payload, null, 2) + '\n');
+  console.log(`wrote ${join(dir, 'three-way.json')}`);
+}

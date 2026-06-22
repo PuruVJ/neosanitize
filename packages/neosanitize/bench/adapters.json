@@ -1,0 +1,152 @@
+{
+  "generatedAt": "2026-06-22T14:54:52.674Z",
+  "node": "v24.1.0",
+  "msPerTask": 500,
+  "versions": {
+    "neosanitize": "0.1.0",
+    "parse5": null,
+    "htmlparser2": null
+  },
+  "adapters": [
+    "ours",
+    "parse5",
+    "htmlparser2"
+  ],
+  "summary": {
+    "ours": 1,
+    "parse5": 0.55,
+    "htmlparser2": 0.88
+  },
+  "scenarios": [
+    {
+      "name": "simple-comment",
+      "description": "small user comment, default options (fixed-overhead path)",
+      "bytes": 141,
+      "ops": {
+        "ours": 415148.8716115416,
+        "parse5": 231764.14229259908,
+        "htmlparser2": 367612.49557150726
+      }
+    },
+    {
+      "name": "blog-post",
+      "description": "realistic ~6KB article, default options",
+      "bytes": 5704,
+      "ops": {
+        "ours": 9644.063043970673,
+        "parse5": 5567.443251518046,
+        "htmlparser2": 7913.814092979455
+      }
+    },
+    {
+      "name": "large-document",
+      "description": "large ~120KB page, default options (sustained throughput)",
+      "bytes": 115590,
+      "ops": {
+        "ours": 472.0652597813244,
+        "parse5": 269.2788402006972,
+        "htmlparser2": 394.4623162009552
+      }
+    },
+    {
+      "name": "xss-attack",
+      "description": "adversarial payloads, default filtering (discard path)",
+      "bytes": 19723,
+      "ops": {
+        "ours": 4482.123204133168,
+        "parse5": 2284.308048042896,
+        "htmlparser2": 3692.1962396512426
+      }
+    },
+    {
+      "name": "attribute-filtering",
+      "description": "attribute-dense markup with a custom allow-list",
+      "bytes": 28719,
+      "ops": {
+        "ours": 3362.267674659437,
+        "parse5": 1727.4278778968219,
+        "htmlparser2": 2554.1933272427104
+      }
+    },
+    {
+      "name": "url-scheme-filter",
+      "description": "many anchors/imgs with varied URL schemes",
+      "bytes": 21931,
+      "ops": {
+        "ours": 3313.609858221052,
+        "parse5": 1811.63545811254,
+        "htmlparser2": 2587.308355812559
+      }
+    },
+    {
+      "name": "style-filtering",
+      "description": "inline styles validated against allowedStyles regexes",
+      "bytes": 20821,
+      "ops": {
+        "ours": 3756.320181804156,
+        "parse5": 1685.2166367089012,
+        "htmlparser2": 3117.387631042293
+      }
+    },
+    {
+      "name": "transform-tags",
+      "description": "transformTags + simpleTransform rewriting",
+      "bytes": 10221,
+      "ops": {
+        "ours": 5893.846643201241,
+        "parse5": 3099.629225432875,
+        "htmlparser2": 4811.260520466657
+      }
+    },
+    {
+      "name": "escape-mode",
+      "description": "disallowedTagsMode \"escape\" over disallowed-tag-heavy input",
+      "bytes": 15761,
+      "ops": {
+        "ours": 5775.934266403653,
+        "parse5": 2835.6242336201267,
+        "htmlparser2": 4680.76214223267
+      }
+    },
+    {
+      "name": "passthrough",
+      "description": "allowedTags/allowedAttributes false — raw parser throughput",
+      "bytes": 28733,
+      "ops": {
+        "ours": 2002.4538709563437,
+        "parse5": 1148.4724295934457,
+        "htmlparser2": 1696.989317985093
+      }
+    },
+    {
+      "name": "entity-heavy",
+      "description": "entity-dense text (decode + re-encode)",
+      "bytes": 24161,
+      "ops": {
+        "ours": 3375.945099559512,
+        "parse5": 1980.2822937812875,
+        "htmlparser2": 3365.7990031647105
+      }
+    },
+    {
+      "name": "big-table",
+      "description": "single large 60×8 table with cell attributes",
+      "bytes": 36599,
+      "ops": {
+        "ours": 2393.1899556042517,
+        "parse5": 1226.372558317719,
+        "htmlparser2": 1765.3276887389807
+      }
+    },
+    {
+      "name": "deeply-nested",
+      "description": "250-level nested divs (recursion / nestingLimit path)",
+      "bytes": 6019,
+      "ops": {
+        "ours": 3910.922597666562,
+        "parse5": 3069.7133861451493,
+        "htmlparser2": 6906.415514525469
+      }
+    }
+  ]
+}
