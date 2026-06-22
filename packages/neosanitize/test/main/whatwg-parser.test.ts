@@ -1,10 +1,10 @@
 /**
- * `neosanitize/parse` — the policy-free, browser-faithful parse tree surface.
+ * `neosanitize/whatwg-parser` — the policy-free, browser-faithful parse tree surface.
  */
 import { describe, it, expect } from 'vitest';
-import { parse, serialize, walk, textContent, find, findAll } from '../../src/main/parse';
+import { parse, serialize, walk, textContent, find, findAll } from '../../src/main/whatwg-parser';
 
-describe('neosanitize/parse', () => {
+describe('neosanitize/whatwg-parser', () => {
   it('parses a full document (implied html/head/body, like DOMParser)', () => {
     const doc = parse('<p>hi</p>');
     expect(doc.type).toBe('document');

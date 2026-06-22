@@ -1,13 +1,13 @@
 /**
- * `neosanitize/parse` — the browser-faithful WHATWG parse tree, exposed.
+ * `neosanitize/whatwg-parser` — the browser-faithful WHATWG parse tree, exposed.
  *
  * This is the *same* tokenizer + tree construction the main sanitizer runs on
- * (100% html5lib tokenizer conformance), without any policy or filtering. Use it
- * to read, query, and re-serialize HTML exactly as a browser would build it —
- * zero dependencies, no DOM.
+ * (100% html5lib tokenizer conformance) — and the same parser the default
+ * `whatwgAdapter` uses — without any policy or filtering. Use it to read, query,
+ * and re-serialize HTML exactly as a browser would build it — zero deps, no DOM.
  *
  * ```ts
- * import { parse, findAll, textContent, serialize } from 'neosanitize/parse';
+ * import { parse, findAll, textContent, serialize } from 'neosanitize/whatwg-parser';
  *
  * const doc = parse('<main><a href="/x">one</a><a href="/y">two</a></main>');
  * findAll(doc, 'a').map((a) => a.attrs.find(([k]) => k === 'href')?.[1]); // ['/x','/y']

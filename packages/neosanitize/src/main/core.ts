@@ -1,13 +1,13 @@
 /**
- * neosanitize — engine core (parser-agnostic policy + serializer).
+ * neosanitize, engine core (parser-agnostic policy + serializer).
  *
  * This module holds EVERYTHING except the parse step: the deny-by-default policy,
  * the inviolable safe baseline, the URL/CSS checks, and the string/text/DOM
  * serializers. It is the single source of truth for every security decision, so
  * the two entry points can NEVER drift:
  *
- *   • `./index`   (default / Node) — `parse()` runs the custom WHATWG parser.
- *   • `./browser` (browser bundle) — `parse()` runs the native `DOMParser`.
+ *   • `./index`   (default / Node), `parse()` runs the custom WHATWG parser.
+ *   • `./browser` (browser bundle), `parse()` runs the native `DOMParser`.
  *
  * Both subclass {@link SanitizerCore} and supply only `parse()`; the browser
  * build therefore ships ZERO parser bytes (it reuses the platform's parser) yet
@@ -16,7 +16,7 @@
  *
  * API is CLASS-ONLY by mandate: you BUILD a `Sanitizer` (via `Sanitizer.builder()`
  * or `new SanitizerBuilder(Sanitizer)`) and call `.sanitize()`. There is
- * deliberately NO one-shot functional `sanitize(html)` helper — constructing a
+ * deliberately NO one-shot functional `sanitize(html)` helper, constructing a
  * sanitizer forces an explicit policy choice (no careless implicit default), and
  * the policy compilation happens ONCE in the constructor so `.sanitize()` is cheap
  * to call repeatedly.
@@ -27,28 +27,38 @@ import type { ElementNode, ParentNode } from './parser/tree-builder';
 // users can build/consume the common tree without importing the parser.
 export type { ElementNode, TextNode, CommentNode, DoctypeNode, DocumentNode, TreeNode, ParentNode, NS } from './parser/tree-builder';
 
+/**
+ * A parse adapter turns untrusted HTML into the common `{type,name,attrs,children}`
+ * tree the policy engine consumes. This is the ONLY pluggable seam: every entry
+ * supplies an environment-appropriate default (the bundled WHATWG parser in Node,
+ * native `DOMParser` in the browser), and `Sanitizer.builder().parser(adapter)`
+ * overrides it with any other, e.g. the `parse5` adapter from `neosanitize/parse5`,
+ * or your own. The policy + serializer are reused verbatim regardless of parser.
+ */
+export type ParseAdapter = (html: string) => ParentNode;
+
 export const version = '0.0.0-dev';
 
 // ---------------------------------------------------------------------------
-// Inviolable safe baseline (applied unless policy.allowUnsafe — mirrors the
+// Inviolable safe baseline (applied unless policy.allowUnsafe, mirrors the
 // native setHTML() safe path). These hold EVEN IF the allow-list permits them;
 // only `sanitizeUnsafe()` skips them.
 // ---------------------------------------------------------------------------
 /** Elements always dropped WITH their content under the baseline. */
 const BASELINE_DROP = new Set(['script']);
-/** Disallowed elements whose CONTENT is also dropped (not unwrapped) — raw-text
+/** Disallowed elements whose CONTENT is also dropped (not unwrapped), raw-text
  * / metadata elements whose children aren't renderable text. */
 const DROP_CONTENT_WHEN_DISALLOWED = new Set(['script', 'style', 'textarea', 'option', 'xmp', 'noscript', 'noembed', 'noframes', 'iframe', 'title', 'template']);
-/** Void elements — serialized with no end tag and no children. */
+/** Void elements, serialized with no end tag and no children. */
 const VOID_ELEMENTS = new Set(['area', 'base', 'basefont', 'bgsound', 'br', 'col', 'command', 'embed', 'frame', 'hr', 'img', 'input', 'isindex', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
-/** Raw-text elements — their text children serialize unescaped. */
+/** Raw-text elements, their text children serialize unescaped. */
 const RAW_TEXT_ELEMENTS = new Set(['script', 'style', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript', 'plaintext']);
 /** Attributes interpreted as URLs (for the baseline scheme check). `xlink href`
  * is the space-stored form of the foreign `xlink:href`. */
 const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'background', 'cite', 'longdesc', 'poster', 'data', 'srcdoc', 'manifest', 'xlink href']);
 
 // ---------------------------------------------------------------------------
-// Policy (resolved, immutable). Deliberately minimal for the scaffold — the
+// Policy (resolved, immutable). Deliberately minimal for the scaffold, the
 // real shape firms up alongside the engine. Presets/url/css live in their own
 // tree-shakeable subpath modules and are passed INTO the builder.
 // ---------------------------------------------------------------------------
@@ -65,13 +75,13 @@ export interface Policy {
   readonly allowUnsafe: boolean;
 }
 
-/** A partial policy or a named preset — accepted anywhere a policy is. */
+/** A partial policy or a named preset, accepted anywhere a policy is. */
 export type PolicyInput = Partial<MutablePolicy> | Preset;
 
 /**
  * Brand symbol identifying a value as a built {@link Preset}. Exported so preset
  * modules (e.g. `neosanitize/presets/*`) and advanced users authoring their own
- * presets can stamp it — the `UNSAFE_` name signals that hand-stamping bypasses
+ * presets can stamp it, the `UNSAFE_` name signals that hand-stamping bypasses
  * normal `Sanitizer` construction and is the caller's responsibility.
  */
 export const UNSAFE_PRESET_SYMBOL: unique symbol = Symbol('neosanitize.preset');
@@ -94,21 +104,28 @@ const EMPTY_POLICY: Policy = {
   allowUnsafe: false
 };
 
+/** Fallback when `SanitizerCore` is constructed directly with no parser. Every
+ * shipped entry (`neosanitize`, `neosanitize/browser`) supplies a real default,
+ * so this only fires if you instantiate the base class without one. */
+const THROW_NO_PARSER: ParseAdapter = () => {
+  throw new Error('neosanitize: no parse adapter. Use the `Sanitizer` from "neosanitize" (or "neosanitize/browser"), or pass one via `.parser(adapter)`.');
+};
+
 /** Precomputed serialize data for one allow-listed ("keep") tag. See `tagCache`. */
 interface TagSer {
   /** The open-tag prefix `<name` (sans attributes and `>`). */
   readonly open: string;
   /** The full end tag `</name>`. */
   readonly close: string;
-  /** Void element — no end tag, no children. */
+  /** Void element, no end tag, no children. */
   readonly isVoid: boolean;
-  /** Raw-text element — text children serialize unescaped. */
+  /** Raw-text element, text children serialize unescaped. */
   readonly rawText: boolean;
   /** Resolved allow-listed attributes (tag-specific ∪ `*`); null = none allowed. */
   readonly attrSet: ReadonlySet<string> | null;
 }
 
-// Minimal Trusted Types shapes — not in the configured DOM lib, and we stay
+// Minimal Trusted Types shapes, not in the configured DOM lib, and we stay
 // zero-dep; structurally compatible with the real browser globals.
 export interface TrustedHTML {
   toString(): string;
@@ -142,7 +159,7 @@ export interface SanitizeToOptions {
   readonly chunkSize?: number;
 }
 
-/** Minimal push target the serializer writes fragments to — satisfied by both a
+/** Minimal push target the serializer writes fragments to, satisfied by both a
  * plain `string[]` (collect-then-join) and {@link ChunkWriter} (stream). */
 interface StringSink {
   push(s: string): void;
@@ -169,10 +186,10 @@ class ChunkWriter implements StringSink {
 }
 
 // ---------------------------------------------------------------------------
-// SanitizerCore — the compiled, reusable base object. Abstract over the parser:
+// SanitizerCore, the compiled, reusable base object. Abstract over the parser:
 // a concrete subclass supplies `parse()` (custom WHATWG parser, or native DOM).
 // ---------------------------------------------------------------------------
-// Hoisted once — a regex literal in a function body allocates a new object per
+// Hoisted once, a regex literal in a function body allocates a new object per
 // call; these run per text node / per attribute / per URL on the hot path.
 const RE_CSS_CTRL = /[\u0000-\u001f]/;
 const RE_WS_G = /\s+/g;
@@ -185,9 +202,16 @@ const RE_GT_G = />/g;
 const RE_QUOT_G = /"/g;
 const RE_NBSP_G = /\u00a0/g;
 
-export abstract class SanitizerCore {
+export class SanitizerCore {
   /** Compiled, immutable policy. */
   readonly policy: Policy;
+
+  /** The environment default parser, supplied by the concrete entry subclass
+   * (bundled WHATWG parser in Node, native `DOMParser` in the browser). */
+  private readonly defaultParse: ParseAdapter;
+  /** An explicit per-instance override from `.parser(adapter)`, or `null` to use
+   * the environment default. Carried through `sanitizeUnsafe`'s re-parse. */
+  private readonly parserOverride: ParseAdapter | null;
 
   /** Per-tag serialize cache, built once from the policy. Holds ONLY tags that
    * serialize as "keep" (allow-listed and not baseline-dropped); a miss routes
@@ -196,10 +220,12 @@ export abstract class SanitizerCore {
    * `Map.get` plus field reads on the serialize hot path. */
   private readonly tagCache: Map<string, TagSer>;
 
-  constructor(policy: Policy = EMPTY_POLICY) {
+  constructor(policy: Policy = EMPTY_POLICY, defaultParse: ParseAdapter = THROW_NO_PARSER, parserOverride: ParseAdapter | null = null) {
     // The constructor is where the expensive compilation happens once: resolving
     // the policy into the fast structures `.sanitize()` reuses.
     this.policy = policy;
+    this.defaultParse = defaultParse;
+    this.parserOverride = parserOverride;
     const cache = new Map<string, TagSer>();
     const star = policy.attrs.get('*');
     for (const tag of policy.tags) {
@@ -221,12 +247,14 @@ export abstract class SanitizerCore {
   }
 
   /**
-   * Parse untrusted HTML into the common `{type,name,attrs,children}` tree.
-   * Implemented per-environment: the custom browser-faithful WHATWG parser
-   * (default/Node entry) or the platform `DOMParser` (browser entry). This is
-   * the ONLY behavioral difference between the two builds.
+   * Parse untrusted HTML into the common `{type,name,attrs,children}` tree, via
+   * the active adapter: an explicit `.parser()` override if set, else the
+   * environment default. This is the ONLY pluggable seam, the policy engine and
+   * serializer downstream are identical for every parser.
    */
-  protected abstract parse(html: string): ParentNode;
+  protected parse(html: string): ParentNode {
+    return (this.parserOverride ?? this.defaultParse)(html);
+  }
 
   /** Sanitize to a string. Always applies the inviolable safe baseline. */
   sanitize(html: string): string {
@@ -248,7 +276,7 @@ export abstract class SanitizerCore {
    * either a callback `(chunk) => void` or any object with a Node-style
    * `write(chunk)` method (an HTTP response, an `fs` write stream, your own).
    *
-   * Same parse, same inviolable baseline, same bytes as {@link sanitize} — just
+   * Same parse, same inviolable baseline, same bytes as {@link sanitize}, just
    * delivered incrementally, so no single large result string is built and large
    * documents stay friendlier on memory. Fragments are batched into
    * ~`chunkSize`-character writes (default 16 KB) so the sink isn't hit per tag.
@@ -272,7 +300,7 @@ export abstract class SanitizerCore {
   }
 
   /**
-   * Sanitize directly into a `DocumentFragment` (browser only) — builds DOM nodes
+   * Sanitize directly into a `DocumentFragment` (browser only), builds DOM nodes
    * from the sanitized tree, skipping the non-idempotent serialize→reparse step
    * (the strongest-safety path). Throws outside a DOM environment.
    */
@@ -431,7 +459,7 @@ export abstract class SanitizerCore {
     if (colon <= 0) return false; // no scheme (relative / fragment / leading ':') -> safe
 
     // FAST PATH (the hot case): if every char before the ':' is a clean scheme
-    // char [A-Za-z0-9+.-], the scheme is UNAMBIGUOUS — no `new URL()` needed.
+    // char [A-Za-z0-9+.-], the scheme is UNAMBIGUOUS, no `new URL()` needed.
     // This is safe because any obfuscation able to smuggle a "javascript:" past
     // the browser's own URL parser MUST inject a non-scheme char (tab, newline,
     // space, control) into the scheme, which fails this scan and drops to the
@@ -524,33 +552,45 @@ export abstract class SanitizerCore {
 
   /** Escape hatch: skip the inviolable baseline (mirrors `setHTMLUnsafe`). */
   sanitizeUnsafe(html: string): string {
-    // Re-parse with the SAME concrete parser (this.constructor), baseline off.
-    const Ctor = this.constructor as new (policy?: Policy) => SanitizerCore;
-    return new Ctor({ ...this.policy, allowUnsafe: true }).sanitize(html);
+    // Re-parse with the SAME concrete entry (this.constructor) AND the same parser
+    // override, baseline off, so the active adapter is preserved.
+    const Ctor = this.constructor as new (policy?: Policy, parser?: ParseAdapter | null) => SanitizerCore;
+    return new Ctor({ ...this.policy, allowUnsafe: true }, this.parserOverride).sanitize(html);
   }
 
   /**
-   * Class-based factory — the entry point: `Sanitizer.builder().preset(…).build()`.
+   * Class-based factory, the entry point: `Sanitizer.builder().preset(…).build()`.
    * Polymorphic over the concrete subclass: `Sanitizer.builder()` yields a builder
    * whose `.build()` returns that same `Sanitizer` (so the correct parser is wired).
    */
-  static builder<T extends SanitizerCore>(this: new (policy?: Policy) => T, base?: PolicyInput): SanitizerBuilder<T> {
+  static builder<T extends SanitizerCore>(this: new (policy?: Policy, parser?: ParseAdapter | null) => T, base?: PolicyInput): SanitizerBuilder<T> {
     const b = new SanitizerBuilder<T>(this);
     return base ? b.preset(base) : b;
   }
 }
 
 // ---------------------------------------------------------------------------
-// Builder — accumulate config cheaply; compile ONCE at build(). Generic over the
+// Builder, accumulate config cheaply; compile ONCE at build(). Generic over the
 // concrete Sanitizer so `build()` returns the right (parser-wired) class.
 // ---------------------------------------------------------------------------
 export class SanitizerBuilder<T extends SanitizerCore = SanitizerCore> {
   private _tags = new Set<string>();
   private _attrs = new Map<string, Set<string>>();
   private _allowUnsafe = false;
+  private _parser: ParseAdapter | null = null;
 
   /** @param ctor the concrete `Sanitizer` subclass to instantiate at `build()`. */
-  constructor(private readonly ctor: new (policy?: Policy) => T) {}
+  constructor(private readonly ctor: new (policy?: Policy, parser?: ParseAdapter | null) => T) {}
+
+  /**
+   * Override the parser. Pass an adapter (e.g. `parse5Adapter` from
+   * `neosanitize/parse5`, or your own `(html) => ParentNode`) to parse with it
+   * instead of the environment default. Pass `null` to restore the default.
+   */
+  parser(adapter: ParseAdapter | null): this {
+    this._parser = adapter;
+    return this;
+  }
 
   /** Start from a preset (or another policy), then refine. */
   preset(p: PolicyInput): this {
@@ -588,7 +628,7 @@ export class SanitizerBuilder<T extends SanitizerCore = SanitizerCore> {
       tags: new Set(this._tags),
       attrs: new Map([...this._attrs].map(([t, s]) => [t, new Set(s)])),
       allowUnsafe: this._allowUnsafe
-    });
+    }, this._parser);
   }
 
   /** Resolve a preset or partial-policy input into an immutable `Policy`. */

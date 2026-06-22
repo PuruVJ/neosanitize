@@ -1,6 +1,6 @@
 # Sanitizing
 
-The main engine (`neosanitize`) is **class-only by design**. You build a `Sanitizer` once — which compiles the policy — and reuse it for every call. This page covers everything you can do with it.
+The main engine (`neosanitize`) is **class-only by design**. You build a `Sanitizer` once, which compiles the policy, and reuse it for every call. This page covers everything you can do with it.
 
 ```ts
 import { Sanitizer } from 'neosanitize';
@@ -10,7 +10,7 @@ s.sanitize('<p>see <a href="/docs" onclick="x()">docs</a><iframe></iframe></p>')
 // → '<p>see <a href="/docs">docs</a></p>'
 ```
 
-Everything not allow-listed is removed — **deny-by-default**.
+Everything not allow-listed is removed, **deny-by-default**.
 
 ## Presets {#presets}
 
@@ -54,7 +54,7 @@ s.sanitizeTo(html, sink); // → streams the result to a sink (no return value)
 
 ### Streaming output {#streaming}
 
-`sanitizeTo(html, sink, opts?)` writes the **same bytes** as `sanitize()` incrementally instead of building one result string — for large documents and for piping straight to a response or file. The sink is a callback or any object with a Node-style `write(chunk)`:
+`sanitizeTo(html, sink, opts?)` writes the **same bytes** as `sanitize()` incrementally instead of building one result string, for large documents and for piping straight to a response or file. The sink is a callback or any object with a Node-style `write(chunk)`:
 
 ```ts
 s.sanitizeTo(html, (chunk) => res.write(chunk));    // callback
@@ -66,7 +66,7 @@ Fragments are batched into ~`chunkSize`-character writes, the same inviolable ba
 
 ## Report mode {#report-mode}
 
-See exactly what was removed and why — for audits, debugging, or telemetry:
+See exactly what was removed and why, for audits, debugging, or telemetry:
 
 ```ts
 const { html, removed } = s.sanitizeWithReport('<a href=javascript:alert(1) onclick=x>y</a>');
@@ -79,7 +79,7 @@ const { html, removed } = s.sanitizeWithReport('<a href=javascript:alert(1) oncl
 
 ## The inviolable safe baseline {#safe-baseline}
 
-Even if your allow-list permits them, the baseline **always** strips `<script>`, `on*` event handlers, and `javascript:` / `vbscript:` / non-image `data:` URLs — mirroring the browser's native `setHTML()`. The only escape hatch is explicit and named to make that obvious:
+Even if your allow-list permits them, the baseline **always** strips `<script>`, `on*` event handlers, and `javascript:` / `vbscript:` / non-image `data:` URLs, mirroring the browser's native `setHTML()`. The only escape hatch is explicit and named to make that obvious:
 
 ```ts
 s.sanitizeUnsafe(html); // skips the baseline (mirrors setHTMLUnsafe); the allow-list still applies
@@ -89,7 +89,7 @@ See the [security model](/security) for the full set of guarantees.
 
 ## Browser build (~3 KB) {#browser-build}
 
-In the browser you don't need to ship an HTML parser — the platform already has one. The package's `browser` export condition automatically routes bundlers (Vite, esbuild, webpack, Rollup) to a build that parses with the native `DOMParser` and runs the **same** policy engine. Same `Sanitizer` API, **zero parser bytes**:
+In the browser you don't need to ship an HTML parser, the platform already has one. The package's `browser` export condition automatically routes bundlers (Vite, esbuild, webpack, Rollup) to a build that parses with the native `DOMParser` and runs the **same** policy engine. Same `Sanitizer` API, **zero parser bytes**:
 
 ```ts
 import { Sanitizer } from 'neosanitize'; // resolves to the browser build in a bundler
@@ -100,4 +100,4 @@ import { Sanitizer } from 'neosanitize'; // resolves to the browser build in a b
 | `.` browser | ~3.2 KB | **~2.9 KB** | native `DOMParser`, no bundled parser |
 | `.` Node / default | ~27 KB | ~23 KB | bundled WHATWG parser + full entity table |
 
-Because parsing is the browser's own, the browser build is byte-for-byte what the user's browser would build — which closes parser-differential / mutation-XSS gaps by construction.
+Because parsing is the browser's own, the browser build is byte-for-byte what the user's browser would build, which closes parser-differential / mutation-XSS gaps by construction.

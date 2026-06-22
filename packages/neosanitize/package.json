@@ -50,9 +50,29 @@
 			"types": "./dist/main/presets/index.d.mts",
 			"import": "./dist/main/presets/index.mjs"
 		},
-		"./parse": {
-			"types": "./dist/main/parse/index.d.mts",
-			"import": "./dist/main/parse/index.mjs"
+		"./whatwg-parser": {
+			"types": "./dist/main/whatwg-parser/index.d.mts",
+			"import": "./dist/main/whatwg-parser/index.mjs"
+		},
+		"./parse5": {
+			"types": "./dist/main/parse5.d.mts",
+			"import": "./dist/main/parse5.mjs"
+		},
+		"./htmlparser2": {
+			"types": "./dist/main/htmlparser2.d.mts",
+			"import": "./dist/main/htmlparser2.mjs"
+		}
+	},
+	"peerDependencies": {
+		"parse5": ">=7",
+		"htmlparser2": ">=9"
+	},
+	"peerDependenciesMeta": {
+		"parse5": {
+			"optional": true
+		},
+		"htmlparser2": {
+			"optional": true
 		}
 	},
 	"sideEffects": false,
@@ -67,6 +87,7 @@
 		"test:watch": "vitest",
 		"bench": "pnpm build && node bench/index.mjs",
 		"bench:3way": "pnpm build && node bench/three-way.mjs",
+		"bench:adapters": "pnpm build && node bench/adapters.mjs --json",
 		"fuzz": "pnpm build && node audit/fuzz.mjs",
 		"fuzz:loop": "pnpm build && node audit/fuzz-loop.mjs",
 		"coverage": "vitest run --coverage",
@@ -78,6 +99,8 @@
 		"@types/sanitize-html": "^2.16.1",
 		"@vitest/coverage-v8": "^4",
 		"happy-dom": "^20.10.6",
+		"htmlparser2": "^12.0.0",
+		"parse5": "^8.0.1",
 		"sanitize-html": "^2.17.5",
 		"sinon": "^22.0.0",
 		"tinybench": "^6.0.2",

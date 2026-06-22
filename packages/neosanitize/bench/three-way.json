@@ -1,0 +1,134 @@
+{
+  "generatedAt": "2026-06-22T14:57:37.757Z",
+  "node": "v24.1.0",
+  "msPerTask": 500,
+  "engines": [
+    "original",
+    "legacy",
+    "modern"
+  ],
+  "summary": {
+    "original": 1,
+    "legacy": 2.75,
+    "modern": 2.26
+  },
+  "scenarios": [
+    {
+      "name": "simple-comment",
+      "bytes": 141,
+      "ops": {
+        "original": 140184.35180047146,
+        "legacy": 767253.3282228066,
+        "modern": 431531.8028596632
+      }
+    },
+    {
+      "name": "blog-post",
+      "bytes": 5704,
+      "ops": {
+        "original": 5338.914789240603,
+        "legacy": 15324.792903747088,
+        "modern": 10540.04491371267
+      }
+    },
+    {
+      "name": "large-document",
+      "bytes": 115590,
+      "ops": {
+        "original": 251.56751494510883,
+        "legacy": 770.9692440778875,
+        "modern": 512.0189035693874
+      }
+    },
+    {
+      "name": "xss-attack",
+      "bytes": 19723,
+      "ops": {
+        "original": 1882.4498328142747,
+        "legacy": 4521.292004421647,
+        "modern": 4783.952037888946
+      }
+    },
+    {
+      "name": "attribute-filtering",
+      "bytes": 28719,
+      "ops": {
+        "original": 1425.7471976036184,
+        "legacy": 2708.0076898103953,
+        "modern": 3404.822263656476
+      }
+    },
+    {
+      "name": "url-scheme-filter",
+      "bytes": 21931,
+      "ops": {
+        "original": 1565.4166320645286,
+        "legacy": 4135.197985414506,
+        "modern": 3469.9175265799367
+      }
+    },
+    {
+      "name": "style-filtering",
+      "bytes": 20821,
+      "ops": {
+        "original": 1770.169647409794,
+        "legacy": 3081.732541961478,
+        "modern": 4146.0010443184265
+      }
+    },
+    {
+      "name": "transform-tags",
+      "bytes": 10221,
+      "ops": {
+        "original": 2970.7903899935313,
+        "legacy": 9020.94484413085,
+        "modern": 6159.993090393196
+      }
+    },
+    {
+      "name": "escape-mode",
+      "bytes": 15761,
+      "ops": {
+        "original": 2163.852476277411,
+        "legacy": 5568.693927355838,
+        "modern": 5847.152359239898
+      }
+    },
+    {
+      "name": "passthrough",
+      "bytes": 28733,
+      "ops": {
+        "original": 1032.9520507055645,
+        "legacy": 3052.8172550034346,
+        "modern": 2141.062780090169
+      }
+    },
+    {
+      "name": "entity-heavy",
+      "bytes": 24161,
+      "ops": {
+        "original": 924.4495920518971,
+        "legacy": 5024.002749855334,
+        "modern": 3359.6909264672886
+      }
+    },
+    {
+      "name": "big-table",
+      "bytes": 36599,
+      "ops": {
+        "original": 1085.3444612766173,
+        "legacy": 2213.803692494852,
+        "modern": 2619.628809320104
+      }
+    },
+    {
+      "name": "deeply-nested",
+      "bytes": 6019,
+      "ops": {
+        "original": 3991.3081812257615,
+        "legacy": 7973.841745028963,
+        "modern": 3990.818773119181
+      }
+    }
+  ]
+}

@@ -122,7 +122,7 @@ const nested = (depth) =>
   '</div>'.repeat(depth);
 
 // ============================================================================
-// Scenario table — each: { name, description, html, options }
+// Scenario table, each: { name, description, html, options }
 // ============================================================================
 
 export const scenarios = [
@@ -208,7 +208,7 @@ export const scenarios = [
   },
   {
     name: 'passthrough',
-    description: 'allowedTags/allowedAttributes false — raw parser throughput',
+    description: 'allowedTags/allowedAttributes false, raw parser throughput',
     html: `<article>${repeat(articleBlock, 30)}</article>`,
     // allowVulnerableTags acknowledges "allow everything" so neither library
     // logs a per-call vulnerability warning (which would skew timing with I/O).

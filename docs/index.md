@@ -4,7 +4,7 @@ layout: home
 hero:
   name: neosanitize
   text: The browser-faithful HTML sanitizer
-  tagline: "Zero dependencies. A WHATWG parser that matches the browser, deny-by-default behind an inviolable safe baseline — ~2.3× faster than sanitize-html and ~3 KB in the browser. Plus a byte-identical drop-in for sanitize-html."
+  tagline: "Zero dependencies. A WHATWG parser that matches the browser, deny-by-default behind an inviolable safe baseline, ~2.3× faster than sanitize-html and ~3 KB in the browser. Plus a byte-identical drop-in for sanitize-html."
   image:
     src: /logo.svg
     alt: neosanitize
@@ -22,7 +22,7 @@ hero:
 features:
   - icon: 🌐
     title: Browser-faithful parse
-    details: "A WHATWG/HTML5 tokenizer at 100% html5lib conformance. The tree you sanitize is the tree a browser builds — which closes parser-differential and mutation-XSS gaps by construction."
+    details: "A WHATWG/HTML5 tokenizer at 100% html5lib conformance. The tree you sanitize is the tree a browser builds, which closes parser-differential and mutation-XSS gaps by construction."
   - icon: 🔒
     title: Deny-by-default
     details: "Only the tags and attributes you allow-list survive. Behind them sits an inviolable baseline that strips scripts, on* handlers and javascript:/data: URLs even when your policy permits them."
@@ -31,13 +31,13 @@ features:
     details: "Geomean 2.3× the throughput of the original sanitize-html across a 13-scenario benchmark. The policy compiles once; every call is just parse, walk, serialize."
   - icon: 🤏
     title: ~3 KB in the browser
-    details: "The browser build parses with the platform's own native DOMParser, so it ships zero parser bytes — about 3 KB brotli versus ~23 KB for the bundled-parser build."
+    details: "The browser build parses with the platform's own native DOMParser, so it ships zero parser bytes, about 3 KB brotli versus ~23 KB for the bundled-parser build."
   - icon: 🧩
     title: Tree-shakeable, zero-dep
-    details: "ESM, side-effect-free, with subpath exports for the curated presets. No runtime dependencies — ever."
+    details: "ESM, side-effect-free, with subpath exports for the curated presets. No runtime dependencies, ever."
   - icon: 🔁
     title: Drop-in legacy
-    details: "./legacy is a byte-identical re-implementation of sanitize-html 2.x — same API, same output, verified with millions of differential-fuzz cases. Migrate with no behaviour change."
+    details: "./legacy is a byte-identical re-implementation of sanitize-html 2.x, same API, same output, verified with millions of differential-fuzz cases. Migrate with no behaviour change."
     link: /guide#which-engine
 ---
 
@@ -48,7 +48,7 @@ features:
   </div>
   <div class="shts-stat">
     <div class="shts-stat__value">~3 KB</div>
-    <div class="shts-stat__label"><strong>browser build</strong>, brotli — zero parser bytes</div>
+    <div class="shts-stat__label"><strong>browser build</strong>, brotli, zero parser bytes</div>
   </div>
   <div class="shts-stat">
     <div class="shts-stat__value">100%</div>
@@ -62,7 +62,7 @@ features:
 
 ## Build a sanitizer, then sanitize
 
-The API is **class-only by design** — you build a `Sanitizer` with an explicit policy and reuse it. There is deliberately no one-shot `sanitize(html)`: forcing an explicit policy means no implicit global default to misconfigure, and the policy compiles **once** so calls stay cheap.
+The API is **class-only by design**, you build a `Sanitizer` with an explicit policy and reuse it. There is deliberately no one-shot `sanitize(html)`: forcing an explicit policy means no implicit global default to misconfigure, and the policy compiles **once** so calls stay cheap.
 
 ```ts
 import { Sanitizer } from 'neosanitize';
@@ -78,7 +78,7 @@ sanitizer.sanitize('<p>hi <img src=x onerror=alert(1)> <script>bad()</script></p
 
 ## The inviolable safe baseline
 
-Even if your allow-list permits them, the baseline **always** strips known-dangerous constructs — mirroring the browser's native `setHTML()`. An allow-list can never re-introduce them; only the explicit `sanitizeUnsafe()` opts out.
+Even if your allow-list permits them, the baseline **always** strips known-dangerous constructs, mirroring the browser's native `setHTML()`. An allow-list can never re-introduce them; only the explicit `sanitizeUnsafe()` opts out.
 
 ```ts
 const s = Sanitizer.builder({ tags: ['a'], attrs: { a: ['href', 'onclick'] } }).build();
@@ -101,10 +101,10 @@ const { html, removed } = s.sanitizeWithReport('<a href=javascript:alert(1) oncl
 ## Two engines, one package
 
 ```ts
-// The new engine — browser-faithful WHATWG parser, deny-by-default:
+// The new engine, browser-faithful WHATWG parser, deny-by-default:
 import { Sanitizer } from 'neosanitize';
 
-// A byte-identical drop-in for sanitize-html 2.x — same API, same output:
+// A byte-identical drop-in for sanitize-html 2.x, same API, same output:
 import sanitize from 'neosanitize/legacy';
 sanitize('<img src=x onerror=alert(1) />', { allowedTags: ['img'], allowedAttributes: { img: ['src'] } });
 // → '<img src="x" />'   (exactly what sanitize-html produces)
@@ -112,7 +112,7 @@ sanitize('<img src=x onerror=alert(1) />', { allowedTags: ['img'], allowedAttrib
 
 ## Performance
 
-**Both** engines are faster than the original `sanitize-html` — `legacy` (a byte-identical streaming drop-in) and `modern` (the default, browser-faithful WHATWG engine). Throughput in ops/sec, higher is better (`pnpm bench:3way`):
+**Both** engines are faster than the original `sanitize-html`, `legacy` (a byte-identical streaming drop-in) and `modern` (the default, browser-faithful WHATWG engine). Throughput in ops/sec, higher is better (`pnpm bench:3way`):
 
 | Scenario | `sanitize-html` | `legacy` | `modern` |
 | --- | ---: | ---: | ---: |
@@ -123,7 +123,7 @@ sanitize('<img src=x onerror=alert(1) />', { allowedTags: ['img'], allowedAttrib
 | large-document (113 KB) | 274 | 834 | 561 |
 | **geomean (13 scenarios)** | **1.00×** | **2.75×** | **2.28×** |
 
-`legacy` is the fastest (a lean `htmlparser2`-style port, same output as sanitize-html); `modern` is ~2.3× the original *while* doing a full WHATWG parse + tree construction — the price of browser-faithfulness. See the [full performance page](/performance).
+`legacy` is the fastest (a lean `htmlparser2`-style port, same output as sanitize-html); `modern` is ~2.3× the original *while* doing a full WHATWG parse + tree construction, the price of browser-faithfulness. See the [full performance page](/performance).
 
 ## Bundle size
 
@@ -133,4 +133,4 @@ sanitize('<img src=x onerror=alert(1) />', { allowedTags: ['img'], allowedAttrib
 | `modern`, Node / default | ~27 KB | ~23 KB | bundled WHATWG parser + full entity table |
 | `legacy` | ~21 KB | ~18 KB | single-file `sanitize-html` port |
 
-> Zero runtime dependencies. ESM. `sideEffects: false` with subpath exports — you ship only what you import.
+> Zero runtime dependencies. ESM. `sideEffects: false` with subpath exports, you ship only what you import.
