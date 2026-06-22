@@ -49,6 +49,10 @@
 		"./presets": {
 			"types": "./dist/main/presets/index.d.mts",
 			"import": "./dist/main/presets/index.mjs"
+		},
+		"./parse": {
+			"types": "./dist/main/parse/index.d.mts",
+			"import": "./dist/main/parse/index.mjs"
 		}
 	},
 	"sideEffects": false,
@@ -64,6 +68,7 @@
 		"bench": "pnpm build && node bench/index.mjs",
 		"bench:3way": "pnpm build && node bench/three-way.mjs",
 		"fuzz": "pnpm build && node audit/fuzz.mjs",
+		"fuzz:loop": "pnpm build && node audit/fuzz-loop.mjs",
 		"coverage": "vitest run --coverage",
 		"typecheck": "tsc --noEmit",
 		"prepublishOnly": "pnpm build"

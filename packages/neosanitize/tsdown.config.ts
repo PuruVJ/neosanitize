@@ -18,6 +18,7 @@ export default defineConfig([
 			'main/index': 'src/main/index.ts',
 			'main/browser': 'src/main/browser.ts',
 			'main/presets/index': 'src/main/presets/index.ts',
+			'main/parse/index': 'src/main/parse/index.ts',
 		},
 		format: ['esm'],
 	},

@@ -498,6 +498,34 @@ interface RawAttribute {
 // majority: <p>, <li>, <strong>, …) skip allocating a fresh array each.
 const EMPTY_RAW_ATTRS: RawAttribute[] = [];
 
+/**
+ * Find the end of an HTML comment opened at `openIdx` (`<!--` at openIdx).
+ * Mirrors htmlparser2's InCommentLike with sequenceIndex=2 after the opening
+ * `--` — supports short comments like `<!-->` as well as `-->`, `--->`, etc.
+ * Returns [contentStart, closeGtIdx] or null if unclosed.
+ */
+function findCommentEnd(input: string, openIdx: number): [number, number] | null {
+  const contentStart = openIdx + 4;
+  const seq = '-->';
+  let seqIdx = 2;
+  for (let j = contentStart; j < input.length; j++) {
+    const c = input[j];
+    if (c === seq[seqIdx]) {
+      if (++seqIdx === seq.length) {
+        return [contentStart, j];
+      }
+    } else if (seqIdx === 0) {
+      const dash = input.indexOf('-', j);
+      if (dash === -1) return null;
+      j = dash;
+      seqIdx = 1;
+    } else if (c !== seq[seqIdx - 1]) {
+      seqIdx = 0;
+    }
+  }
+  return null;
+}
+
 class Parser {
   private h: ParserHandlers;
   private lowerCaseTags: boolean;
@@ -634,13 +662,14 @@ class Parser {
         i = lt;
       }
       const nextCC = input.charCodeAt(i + 1); // 0x21=! 0x3f=? 0x2f=/ 0x2d=-
-      // Comment <!-- ... -->
+      // Comment <!-- ... --> — htmlparser2 sequence match (not naive indexOf).
       if (nextCC === 0x21 && input.charCodeAt(i + 2) === 0x2d && input.charCodeAt(i + 3) === 0x2d) {
         flushText(i);
-        const end = input.indexOf('-->', i + 4);
-        if (end === -1) return;
-        if (this.h.oncomment) this.h.oncomment(input.substring(i + 4, end));
-        i = end + 3;
+        const end = findCommentEnd(input, i);
+        if (!end) return;
+        const [contentStart, closeGt] = end;
+        if (this.h.oncomment) this.h.oncomment(input.substring(contentStart, closeGt - 2));
+        i = closeGt + 1;
         textStart = i;
         this.endIndex = i;
         continue;
@@ -656,11 +685,43 @@ class Parser {
         this.endIndex = i;
         continue;
       }
-      // DOCTYPE / processing instruction — bogus comment to next '>'.
+      // DOCTYPE / processing instruction / bogus <!…> declarations.
+      // Mirrors htmlparser2: `<!--` is handled above; a lone `<!-` (not `<!--`)
+      // emits the tail as text; `<!>` emits `>`; `<!-x>` is a silent declaration.
       if (nextCC === 0x21 || nextCC === 0x3f) {
         flushText(i);
+        if (nextCC === 0x3f) {
+          const end = input.indexOf('>', i + 2);
+          if (end === -1) { i += 2; textStart = i; continue; }
+          i = end + 1;
+          textStart = i;
+          this.endIndex = i;
+          continue;
+        }
+        const c2 = input.charCodeAt(i + 2);
+        if (c2 === 0x2d) {
+          const c3 = input.charCodeAt(i + 3);
+          if (c3 === 0x3e || c3 === undefined || Number.isNaN(c3)) {
+            i += 2;
+            textStart = i;
+            this.endIndex = i;
+            continue;
+          }
+          const end = input.indexOf('>', i + 2);
+          if (end === -1) { i += 2; textStart = i; continue; }
+          i = end + 1;
+          textStart = i;
+          this.endIndex = i;
+          continue;
+        }
+        if (c2 === 0x3e) {
+          i += 2;
+          textStart = i;
+          this.endIndex = i;
+          continue;
+        }
         const end = input.indexOf('>', i + 2);
-        if (end === -1) return;
+        if (end === -1) { i += 2; textStart = i; continue; }
         i = end + 1;
         textStart = i;
         this.endIndex = i;
@@ -738,7 +799,12 @@ class Parser {
           }
           const attrNameStart = j;
           while (j < len && !isAttrNameEndCC(input.charCodeAt(j))) j++;
-          const attrName = input.substring(attrNameStart, j);
+          let attrName = input.substring(attrNameStart, j);
+          // htmlparser2 treats a lone `=` as an attribute name (`<a ==b>` → { '=': 'b' }).
+          if (!attrName && input[j] === '=') {
+            attrName = '=';
+            j++;
+          }
           if (!attrName) {
             j++;
             continue;
@@ -926,51 +992,151 @@ interface SrcsetEntry {
 // parse-srcset uses the WHATWG ASCII whitespace set, NOT JS `\s` (which also
 // matches U+00A0 etc.) — so e.g. `&nbsp;` stays part of a candidate URL.
 const SRCSET_WS = /[\t\n\f\r ]/;
+// Mirrors parse-srcset@1.0.2 descriptor validation exactly.
+const SRCSET_NON_NEG_INT = /^\d+$/;
+const SRCSET_FLOAT = /^-?(?:[0-9]+|[0-9]*\.[0-9]+)(?:[eE][+-]?[0-9]+)?$/;
 
 function parseSrcset(input: string): SrcsetEntry[] {
-  const result: SrcsetEntry[] = [];
-  const len = input.length;
-  let i = 0;
-  while (i < len) {
-    while (i < len && (SRCSET_WS.test(input[i]) || input[i] === ',')) i++;
-    if (i >= len) break;
-    const urlStart = i;
-    while (i < len && !SRCSET_WS.test(input[i])) i++;
-    let url = input.substring(urlStart, i);
-    let hadTrailingComma = false;
-    while (url.endsWith(',')) {
-      url = url.slice(0, -1);
-      hadTrailingComma = true;
+  // Faithful port of parse-srcset@1.0.2 (used by sanitize-html).
+  const candidates: SrcsetEntry[] = [];
+  const inputLength = input.length;
+  let pos = 0;
+
+  const isSpace = (c: string) =>
+    c === '\u0020' || c === '\u0009' || c === '\u000A' || c === '\u000C' || c === '\u000D';
+
+  const collectLeading = (re: RegExp): string => {
+    const m = re.exec(input.substring(pos));
+    if (m) {
+      const chars = m[0];
+      pos += chars.length;
+      return chars;
     }
-    if (!url) continue;
+    return '';
+  };
+
+  const parseDescriptors = (url: string, descriptors: string[]): void => {
+    let pError = false;
+    let w: number | undefined;
+    let d: number | undefined;
+    let h: number | undefined;
     const entry: SrcsetEntry = { url };
-    if (hadTrailingComma) {
-      result.push(entry);
-      continue;
-    }
-    let invalid = false;
-    while (i < len) {
-      while (i < len && SRCSET_WS.test(input[i])) i++;
-      if (i >= len) break;
-      if (input[i] === ',') { i++; break; }
-      const descStart = i;
-      while (i < len && input[i] !== ',' && !SRCSET_WS.test(input[i])) i++;
-      const desc = input.substring(descStart, i);
-      const m = /^([0-9]+(?:\.[0-9]+)?)([wxhWXH])$/.exec(desc);
-      if (m) {
-        const kind = m[2].toLowerCase();
-        const key = kind === 'x' ? 'd' : kind;
-        if (entry.w != null || entry.h != null || entry.d != null) {
-          invalid = true;
-        }
-        (entry as unknown as Record<string, unknown>)[key] = parseFloat(m[1]);
-      } else if (desc) {
-        invalid = true;
+
+    for (let di = 0; di < descriptors.length; di++) {
+      const desc = descriptors[di];
+      const lastChar = desc[desc.length - 1];
+      const value = desc.substring(0, desc.length - 1);
+      const intVal = parseInt(value, 10);
+      const floatVal = parseFloat(value);
+      if (SRCSET_NON_NEG_INT.test(value) && lastChar === 'w') {
+        if (w != null || d != null) pError = true;
+        else if (intVal === 0) pError = true;
+        else w = intVal;
+      } else if (SRCSET_FLOAT.test(value) && lastChar === 'x') {
+        if (w != null || d != null || h != null) pError = true;
+        else if (floatVal < 0) pError = true;
+        else d = floatVal;
+      } else if (SRCSET_NON_NEG_INT.test(value) && lastChar === 'h') {
+        if (h != null || d != null) pError = true;
+        else if (intVal === 0) pError = true;
+        else h = intVal;
+      } else {
+        pError = true;
       }
     }
-    if (!invalid) result.push(entry);
+
+    if (!pError) {
+      if (w != null) entry.w = w;
+      if (d != null) entry.d = d;
+      if (h != null) entry.h = h;
+      candidates.push(entry);
+    } else if (typeof console !== 'undefined' && console.log) {
+      const bad = descriptors.find((desc) => {
+        const lastChar = desc[desc.length - 1];
+        const value = desc.substring(0, desc.length - 1);
+        const intVal = parseInt(value, 10);
+        const floatVal = parseFloat(value);
+        if (SRCSET_NON_NEG_INT.test(value) && lastChar === 'w') return intVal === 0;
+        if (SRCSET_FLOAT.test(value) && lastChar === 'x') return floatVal < 0;
+        if (SRCSET_NON_NEG_INT.test(value) && lastChar === 'h') return intVal === 0;
+        return true;
+      }) ?? descriptors[descriptors.length - 1];
+      console.log(`Invalid srcset descriptor found in '${input}' at '${bad}'.`);
+    }
+  };
+
+  const tokenize = (url: string): void => {
+    const descriptors: string[] = [];
+    let currentDescriptor = '';
+    let state: 'in descriptor' | 'in parens' | 'after descriptor' = 'in descriptor';
+
+    while (true) {
+      const c = pos < inputLength ? input[pos] : '';
+      if (state === 'in descriptor') {
+        if (isSpace(c)) {
+          if (currentDescriptor) {
+            descriptors.push(currentDescriptor);
+            currentDescriptor = '';
+            state = 'after descriptor';
+          }
+        } else if (c === ',') {
+          pos++;
+          if (currentDescriptor) descriptors.push(currentDescriptor);
+          parseDescriptors(url, descriptors);
+          return;
+        } else if (c === '(') {
+          currentDescriptor += c;
+          state = 'in parens';
+        } else if (c === '') {
+          if (currentDescriptor) descriptors.push(currentDescriptor);
+          parseDescriptors(url, descriptors);
+          return;
+        } else {
+          currentDescriptor += c;
+        }
+      } else if (state === 'in parens') {
+        if (c === ')') {
+          currentDescriptor += c;
+          state = 'in descriptor';
+        } else if (c === '') {
+          descriptors.push(currentDescriptor);
+          parseDescriptors(url, descriptors);
+          return;
+        } else {
+          currentDescriptor += c;
+        }
+      } else if (state === 'after descriptor') {
+        if (isSpace(c)) {
+          // stay
+        } else if (c === '') {
+          parseDescriptors(url, descriptors);
+          return;
+        } else {
+          state = 'in descriptor';
+          pos--;
+        }
+      }
+      pos++;
+    }
+  };
+
+  while (true) {
+    collectLeading(/^[, \t\n\r\u000c]+/);
+    if (pos >= inputLength) return candidates;
+
+    const urlMatch = /^[^ \t\n\r\u000c]+/.exec(input.substring(pos));
+    if (!urlMatch) return candidates;
+    let url = urlMatch[0];
+    pos += url.length;
+
+    const descriptors: string[] = [];
+    if (url.endsWith(',')) {
+      url = url.replace(/,+$/, '');
+      parseDescriptors(url, descriptors);
+    } else {
+      tokenize(url);
+    }
   }
-  return result;
 }
 
 function stringifySrcset(parsed: SrcsetEntry[]): string {
@@ -1163,11 +1329,13 @@ const VALID_HTML_ATTRIBUTE_NAME = /^[^\0\t\n\f\r /<=>]+$/;
  * the equivalence end-to-end against the original.
  */
 function isAttrNameParserClean(a: string): boolean {
-  const len = a.length;
-  if (len === 0) return false;
-  for (let i = 0; i < len; i++) {
+  if (a.length === 0) return false;
+  for (let i = 0; i < a.length; i++) {
     const c = a.charCodeAt(i);
-    if (c === 0 || c === 60) return false; // \0 or <
+    // Mirror VALID_HTML_ATTRIBUTE_NAME — parser now allows `=` in names (htmlparser2
+    // parity) but the sanitizer must still reject them.
+    if (c === 0 || c === 9 || c === 10 || c === 12 || c === 13 || c === 32 ||
+        c === 47 || c === 60 || c === 61 || c === 62) return false;
   }
   return true;
 }
