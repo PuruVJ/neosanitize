@@ -172,6 +172,19 @@ class ChunkWriter implements StringSink {
 // SanitizerCore — the compiled, reusable base object. Abstract over the parser:
 // a concrete subclass supplies `parse()` (custom WHATWG parser, or native DOM).
 // ---------------------------------------------------------------------------
+// Hoisted once — a regex literal in a function body allocates a new object per
+// call; these run per text node / per attribute / per URL on the hot path.
+const RE_CSS_CTRL = /[\u0000-\u001f]/;
+const RE_WS_G = /\s+/g;
+const RE_QUOTES_G = /['"]/g;
+const RE_TEXT_NEEDS = /[&<>\u00a0]/;
+const RE_ATTR_NEEDS = /[&"\u00a0]/;
+const RE_AMP_G = /&/g;
+const RE_LT_G = /</g;
+const RE_GT_G = />/g;
+const RE_QUOT_G = /"/g;
+const RE_NBSP_G = /\u00a0/g;
+
 export abstract class SanitizerCore {
   /** Compiled, immutable policy. */
   readonly policy: Policy;
@@ -490,8 +503,8 @@ export abstract class SanitizerCore {
     return decls;
   }
   private static unsafeCssValue(val: string): boolean {
-    if (/[\u0000-\u001f]/.test(val)) return true; // control chars (obfuscation)
-    const v = val.replace(/\s+/g, '').toLowerCase().replace(/['"]/g, '');
+    if (RE_CSS_CTRL.test(val)) return true; // control chars (obfuscation)
+    const v = val.replace(RE_WS_G, '').toLowerCase().replace(RE_QUOTES_G, '');
     if (v.includes('expression(') || v.includes('javascript:') || v.includes('vbscript:')) return true;
     if (v.includes('url(data:') && !v.includes('url(data:image/')) return true;
     return false;
@@ -501,12 +514,12 @@ export abstract class SanitizerCore {
     return name.indexOf(' ') === -1 ? name : name.replace(' ', ':');
   }
   private static escapeText(s: string): string {
-    if (!/[&<>\u00a0]/.test(s)) return s;
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\u00a0/g, '&nbsp;');
+    if (!RE_TEXT_NEEDS.test(s)) return s;
+    return s.replace(RE_AMP_G, '&amp;').replace(RE_LT_G, '&lt;').replace(RE_GT_G, '&gt;').replace(RE_NBSP_G, '&nbsp;');
   }
   private static escapeAttr(s: string): string {
-    if (!/[&"\u00a0]/.test(s)) return s;
-    return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/\u00a0/g, '&nbsp;');
+    if (!RE_ATTR_NEEDS.test(s)) return s;
+    return s.replace(RE_AMP_G, '&amp;').replace(RE_QUOT_G, '&quot;').replace(RE_NBSP_G, '&nbsp;');
   }
 
   /** Escape hatch: skip the inviolable baseline (mirrors `setHTMLUnsafe`). */

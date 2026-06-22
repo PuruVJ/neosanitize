@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import DefaultTheme from 'vitepress/theme';
-import pkg from '../../../package.json';
+import pkg from '../../../packages/neosanitize/package.json';
 import ThemeToggle from './components/ThemeToggle.vue';
 
 const { Layout } = DefaultTheme;
@@ -9,7 +9,13 @@ const { Layout } = DefaultTheme;
 <template>
   <Layout>
     <template #nav-bar-title-after>
-      <span class="nt-version">v{{ pkg.version }}</span>
+      <a
+        class="nt-version"
+        :href="`https://www.npmjs.com/package/neosanitize/v/${pkg.version}`"
+        target="_blank"
+        rel="noreferrer"
+        >v{{ pkg.version }}</a
+      >
     </template>
     <template #nav-bar-content-after>
       <ThemeToggle class="nt-theme-nav" />

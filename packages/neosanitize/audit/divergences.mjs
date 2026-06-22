@@ -89,18 +89,20 @@ const CASES = [
   // ---- URL / SRCSET --------------------------------------------------------
   { area: 'url', risk: 'security', note: 'imagesrcset not sanitized (dangerous scheme passes)',
     html: '<img imagesrcset="https://a.png 1x, vbscript:x 2x">', opts: { allowedTags: ['img'], allowedAttributes: { img: ['imagesrcset'] } } },
-  { area: 'url', risk: 'parity', note: 'srcset exponent descriptor (ours stricter, drops image)',
-    html: '<img srcset="https://a.png 1e2x">', opts: { allowedTags: ['img'], allowedAttributes: { img: ['srcset'] } } },
-  { area: 'url', risk: 'parity', note: 'srcset uppercase descriptor (ours more permissive)',
-    html: '<img srcset="https://a.png 2X">', opts: { allowedTags: ['img'], allowedAttributes: { img: ['srcset'] } } },
-  { area: 'url', risk: 'parity', note: 'srcset 0w (ours more permissive)',
-    html: '<img srcset="https://a.png 0w">', opts: { allowedTags: ['img'], allowedAttributes: { img: ['srcset'] } } },
 
   // ---- PARITY SANITY (these SHOULD match — guard against regressions) ------
   { area: 'scheme', risk: 'parity', note: 'OK: default src javascript stripped (matches)',
     html: '<img src="javascript:alert(1)">' },
   { area: 'url', risk: 'parity', note: 'OK: classic srcset filter (matches)',
     html: '<img srcset="javascript:alert(1) 1x, https://ok.com/a.png 2x">', opts: { allowedTags: ['img'], allowedAttributes: { img: ['srcset'] } } },
+  { area: 'url', risk: 'parity', note: 'OK: srcset exponent descriptor 1e2x (matches)',
+    html: '<img srcset="https://a.png 1e2x">', opts: { allowedTags: ['img'], allowedAttributes: { img: ['srcset'] } } },
+  { area: 'url', risk: 'parity', note: 'OK: srcset uppercase descriptor rejected (matches)',
+    html: '<img srcset="https://a.png 2X">', opts: { allowedTags: ['img'], allowedAttributes: { img: ['srcset'] } } },
+  { area: 'url', risk: 'parity', note: 'OK: srcset 0w rejected (matches)',
+    html: '<img srcset="https://a.png 0w">', opts: { allowedTags: ['img'], allowedAttributes: { img: ['srcset'] } } },
+  { area: 'parser', risk: 'parity', note: 'OK: short comment <!--> boundary (matches)',
+    html: '<!--->x-->y' },
 ];
 
 const filterTags = process.argv.slice(2);

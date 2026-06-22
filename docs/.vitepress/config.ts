@@ -39,6 +39,8 @@ export default defineConfig({
     logo: '/logo.svg',
     nav: [
       { text: 'Guide', link: '/guide' },
+      { text: 'Parse', link: '/parse' },
+      { text: 'Legacy', link: '/legacy' },
       { text: 'Performance', link: '/performance' },
       { text: 'Security', link: '/security' },
       { text: 'npm', link: 'https://www.npmjs.com/package/neosanitize' },
@@ -48,7 +50,25 @@ export default defineConfig({
         text: 'Getting started',
         items: [
           { text: 'Introduction', link: '/guide' },
-          { text: 'The two engines', link: '/guide#which-engine' },
+          { text: 'Which engine?', link: '/guide#which-engine' },
+        ],
+      },
+      {
+        text: 'Main engine',
+        items: [
+          { text: 'Sanitizing', link: '/sanitizing' },
+          { text: 'Presets', link: '/sanitizing#presets' },
+          { text: 'Output targets', link: '/sanitizing#output-targets' },
+          { text: 'Report mode', link: '/sanitizing#report-mode' },
+          { text: 'Safe baseline', link: '/sanitizing#safe-baseline' },
+          { text: 'Browser build', link: '/sanitizing#browser-build' },
+        ],
+      },
+      {
+        text: 'Subpath modules',
+        items: [
+          { text: 'neosanitize/parse', link: '/parse' },
+          { text: 'neosanitize/legacy', link: '/legacy' },
         ],
       },
       {
@@ -63,7 +83,8 @@ export default defineConfig({
     search: { provider: 'local' },
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright © Puru Vijay',
+      copyright:
+        'Copyright © <a href="https://puruvj.dev" target="_blank" rel="noreferrer">Puru Vijay</a>',
     },
   },
 });

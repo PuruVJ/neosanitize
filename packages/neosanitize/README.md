@@ -162,6 +162,25 @@ sanitize('<img src=x onerror=alert(1) />', {
 // → '<img src="x" />'  (exactly what sanitize-html produces)
 ```
 
+It reimplements `sanitize-html`'s three parsers — `htmlparser2`, `parse-srcset`, and `postcss` — **inline, with zero runtime dependencies**. Notably, `postcss` is only there to filter the `style` attribute for `allowedStyles`; our hand-written declaration parser matches it on every realistic style **and** works in the browser (the original's postcss path is Node-only). Details: [the legacy guide](https://neosanitize.puruvj.dev/legacy#zero-dependencies-what-we-replaced).
+
+---
+
+## Parsing — `neosanitize/parse`
+
+Need the tree, not the sanitizer? `neosanitize/parse` exposes the **same browser-faithful WHATWG parser**, policy-free — zero-dep, no DOM. The tree is what a browser builds (misnesting, foster parenting, the adoption agency, all handled), and `parse()` returns a full document just like `DOMParser.parseFromString(html, 'text/html')`.
+
+```ts
+import { parse, findAll, textContent, serialize } from 'neosanitize/parse';
+
+const doc = parse('<main><a href="/x">one</a><a href="/y">two</a></main>');
+findAll(doc, 'a').map((a) => a.attrs.find(([k]) => k === 'href')?.[1]); // ['/x','/y']
+textContent(doc); // 'onetwo'
+serialize(doc);   // round-trips to the normalized HTML the browser would produce
+```
+
+`parse`, `serialize`, `find`/`findAll` (tag name or predicate), `walk`, `textContent`. It's a parse tree + helpers, not a full DOM — see the [parsing guide](https://neosanitize.puruvj.dev/parse).
+
 ---
 
 ## Performance
