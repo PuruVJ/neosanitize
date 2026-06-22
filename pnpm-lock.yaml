@@ -38,15 +38,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4
         version: 4.1.9(vitest@4.1.7)
-      entities:
-        specifier: 7.0.1
-        version: 7.0.1
       happy-dom:
         specifier: ^20.10.6
         version: 20.10.6
-      postcss:
-        specifier: 8.5.15
-        version: 8.5.15
       sanitize-html:
         specifier: ^2.17.5
         version: 2.17.5
