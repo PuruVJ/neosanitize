@@ -5,7 +5,7 @@ The main engine (`neosanitize`) is **class-only by design**. You build a `Saniti
 ```ts
 import { Sanitizer } from 'neosanitize';
 
-const s = Sanitizer.builder({ tags: ['a', 'b', 'p'], attrs: { a: ['href'] } }).build();
+const s = Sanitizer.builder().allow(['a', 'b', 'p']).allow('a', ['href']).build();
 s.sanitize('<p>see <a href="/docs" onclick="x()">docs</a><iframe></iframe></p>');
 // → '<p>see <a href="/docs">docs</a></p>'
 ```
@@ -41,6 +41,50 @@ const s = Sanitizer.builder(presets.basic)
 ```
 
 `'*'` allows an attribute on any tag: `attrs: { '*': ['class'] }`.
+
+## Dynamic tags {#dynamic-tags}
+
+When the tag set follows a convention rather than a fixed list (custom elements like `qds-*` / `se-*`, web components, a design-system prefix), pass a `RegExp` or predicate to `allow` instead of a name. Use `'*'` to allow any attribute on matched tags:
+
+```ts
+const s = Sanitizer.builder(ugc)
+  .allow(/^(qds|se)-/, '*')             // regex + any attribute
+  .allow((tag) => tag.startsWith('x-')) // or a predicate
+  .build();
+```
+
+This is compiled once, not evaluated per call. A matched tag is resolved on first sight and memoized, so repeated tags stay O(1). The inviolable baseline still applies to matched tags: a `<qds-link onclick=... href="javascript:...">` keeps neither the handler nor the URL.
+
+## Transforming attributes {#transforming-attributes}
+
+For attribute logic that isn't a simple allow/deny, register a `transformAttribute` hook. It runs on every allow-listed attribute and returns a new value, `null` to drop it, or `undefined` to leave it:
+
+```ts
+const s = Sanitizer.builder(ugc)
+  .transformAttribute(({ tag, name, value }) =>
+    name === 'class' ? value.replace(/\binternal-\S+/g, '').trim() : value
+  )
+  .build();
+```
+
+The hook can rewrite or drop, but its result is re-checked by the baseline, so it can never reintroduce an `on*` handler or a dangerous-scheme URL. It also only sees allow-listed attributes, so it can't resurrect a denied one. Multiple hooks compose in order.
+
+> Stripping all `on*` event handlers needs no hook. The baseline already removes them (and `javascript:` / `vbscript:` / non-image `data:` URLs) by default, on every tag, regardless of the allow-list.
+
+## Deriving a sanitizer {#extend}
+
+A common setup is one shared `Sanitizer` built at startup and reused everywhere, with one or two call sites that need a little extra. `toExtended` derives a variant from an existing instance without re-declaring the base policy. Like `Array.prototype.toSorted`, it returns a new sanitizer and never mutates the original:
+
+```ts
+// shared, built once
+export const sanitizer = Sanitizer.builder(ugc).build();
+
+// at the one place that renders design-system markup
+const withComponents = sanitizer.toExtended((b) => b.allow(/^(qds|se)-/, '*'));
+withComponents.sanitize(input);
+```
+
+The derived sanitizer inherits the base tags, attributes, matchers, hooks, and parser, then applies whatever you add in the callback, and compiles once like any other.
 
 ## Output targets {#output-targets}
 

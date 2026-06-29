@@ -6,10 +6,10 @@
 
 Zero-dependency, isomorphic HTML sanitizer in TypeScript. **Two engines in one package:**
 
-- **`.` (main)** — a new, forward-looking engine built on a **browser-faithful WHATWG parser** (100% [html5lib](https://github.com/html5lib/html5lib-tests) tokenizer conformance), **deny-by-default** policy, and an **inviolable safe baseline**. Roughly **2.3× faster** than `sanitize-html` across a 13-scenario benchmark.
-- **`./legacy`** — a byte-identical, drop-in port of [`sanitize-html`](https://github.com/apostrophecms/sanitize-html) 2.x: same API, same output, verified against the original with millions of differential-fuzz cases. Use it to migrate off `sanitize-html` (and its `htmlparser2` + `postcss` dependency tree) with no behaviour change.
+- **`.` (main)**, a new, forward-looking engine built on a **browser-faithful WHATWG parser** (100% [html5lib](https://github.com/html5lib/html5lib-tests) tokenizer conformance), **deny-by-default** policy, and an **inviolable safe baseline**. Roughly **2.3× faster** than `sanitize-html` across a 13-scenario benchmark.
+- **`./legacy`**, a byte-identical, drop-in port of [`sanitize-html`](https://github.com/apostrophecms/sanitize-html) 2.x: same API, same output, verified against the original with millions of differential-fuzz cases. Use it to migrate off `sanitize-html` (and its `htmlparser2` + `postcss` dependency tree) with no behaviour change.
 
-No runtime dependencies. ESM. `sideEffects: false` and subpath exports — you ship only what you import.
+No runtime dependencies. ESM. `sideEffects: false` and subpath exports, you ship only what you import.
 
 ```bash
 npm install neosanitize
@@ -27,11 +27,11 @@ npm install neosanitize
 | **Default posture** | deny-by-default + inviolable baseline | identical to `sanitize-html` |
 | **Stability** | evolves (semver) | frozen to `sanitize-html`'s behaviour |
 
-The two share **no runtime code** — importing one never pulls in the other.
+The two share **no runtime code**, importing one never pulls in the other.
 
 ---
 
-## Quick start — the main engine
+## Quick start, the main engine
 
 The main engine is **class-only by design**. You build a `Sanitizer` with an explicit policy and call `.sanitize()`. There is deliberately **no** one-shot `sanitize(html)` helper: forcing an explicit policy means there's no implicit global default to misconfigure, and the policy is compiled **once** so repeated `.sanitize()` calls are cheap.
 
@@ -47,10 +47,10 @@ sanitizer.sanitize('<p>hi <img src=x onerror=alert(1)> <script>bad()</script></p
 //   onerror handler stripped, <script> dropped with its content.
 ```
 
-Start from scratch (deny-by-default — everything not allow-listed is removed):
+Start from scratch (deny-by-default, everything not allow-listed is removed):
 
 ```ts
-const s = Sanitizer.builder({ tags: ['a', 'b', 'p'], attrs: { a: ['href'] } }).build();
+const s = Sanitizer.builder().allow(['a', 'b', 'p']).allow('a', ['href']).build();
 s.sanitize('<p>see <a href="/docs" onclick="x()">docs</a><iframe></iframe></p>');
 // → '<p>see <a href="/docs">docs</a></p>'
 ```
@@ -81,7 +81,20 @@ const s = Sanitizer.builder(presets.basic) // start from a preset (or a partial 
   .build();
 ```
 
-`'*'` allows an attribute on any tag: `attrs: { '*': ['class'] }`.
+`allow('*', [...])` sets attributes allowed on any tag. `allow` is polymorphic: an exact name, an array of names (`allow(['p', 'b', 'i'])`), or a **pattern** for custom elements whose set isn't known up front, with `'*'` for any attribute:
+
+```ts
+const s = Sanitizer.builder(presets.ugc)
+  .allow(/^(qds|se)-/, '*')                              // dynamic custom-element tags
+  .transformAttribute(({ name, value }) =>               // arbitrary per-attribute logic
+    name === 'class' ? value.replace(/\binternal-\S+/g, '').trim() : value)
+  .build();
+
+// derive a variant from a shared sanitizer without re-declaring the base (base is untouched):
+const local = s.toExtended((b) => b.allow(/^acme-/, '*'));
+```
+
+The inviolable baseline still applies to pattern-matched tags and to hook output (a hook can rewrite or drop, never reintroduce `on*` / `javascript:`).
 
 ### Output targets
 
@@ -95,7 +108,7 @@ s.sanitizeTo(html, sink);     // → streams the result to a sink (no return val
 
 ### Streaming output
 
-`sanitizeTo(html, sink, opts?)` delivers the **same bytes** as `sanitize()` incrementally instead of returning one string — handy for large documents (no big result string) and for writing straight to a response or file stream. The sink is a callback or any object with a Node-style `write(chunk)`:
+`sanitizeTo(html, sink, opts?)` delivers the **same bytes** as `sanitize()` incrementally instead of returning one string, handy for large documents (no big result string) and for writing straight to a response or file stream. The sink is a callback or any object with a Node-style `write(chunk)`:
 
 ```ts
 s.sanitizeTo(html, (chunk) => res.write(chunk));   // callback
@@ -103,11 +116,11 @@ s.sanitizeTo(html, res);                           // an HTTP response / fs writ
 s.sanitizeTo(html, sink, { chunkSize: 64 * 1024 }); // tune the flush size (default 16 KB)
 ```
 
-Fragments are batched into ~`chunkSize`-character writes (so the sink isn't hit once per tag). The same inviolable baseline applies. It's synchronous — the whole input is parsed first (a faithful tree is required), so it streams *output*, not input, and doesn't await backpressure.
+Fragments are batched into ~`chunkSize`-character writes (so the sink isn't hit once per tag). The same inviolable baseline applies. It's synchronous, the whole input is parsed first (a faithful tree is required), so it streams *output*, not input, and doesn't await backpressure.
 
 ### Report mode
 
-See exactly what was removed and why — for audits, debugging, or telemetry:
+See exactly what was removed and why, for audits, debugging, or telemetry:
 
 ```ts
 const { html, removed } = s.sanitizeWithReport('<a href=javascript:alert(1) onclick=x>y</a>');
@@ -120,7 +133,7 @@ const { html, removed } = s.sanitizeWithReport('<a href=javascript:alert(1) oncl
 
 ### The inviolable safe baseline
 
-Even if your allow-list permits them, the baseline **always** strips known-dangerous constructs — `<script>`, `on*` event handlers, and `javascript:` / `vbscript:` / non-image `data:` URLs — mirroring the browser's native `setHTML()`. An allow-list can never re-introduce them.
+Even if your allow-list permits them, the baseline **always** strips known-dangerous constructs, `<script>`, `on*` event handlers, and `javascript:` / `vbscript:` / non-image `data:` URLs, mirroring the browser's native `setHTML()`. An allow-list can never re-introduce them.
 
 The only escape hatch is explicit, and named to make that obvious:
 
@@ -132,7 +145,7 @@ s.sanitizeUnsafe(html); // skips the baseline (mirrors setHTMLUnsafe); the allow
 
 ## Browser build (native parser, ~3 KB)
 
-In the browser you don't need to ship an HTML parser — the platform already has one. The package's `browser` export condition automatically routes bundlers (Vite, esbuild, webpack, Rollup) to a build that parses with the native `DOMParser` and runs the **same** policy engine. Same `Sanitizer` API, **zero parser bytes**:
+In the browser you don't need to ship an HTML parser, the platform already has one. The package's `browser` export condition automatically routes bundlers (Vite, esbuild, webpack, Rollup) to a build that parses with the native `DOMParser` and runs the **same** policy engine. Same `Sanitizer` API, **zero parser bytes**:
 
 ```ts
 import { Sanitizer } from 'neosanitize'; // resolves to the browser build in a bundler
@@ -144,13 +157,13 @@ import { Sanitizer } from 'neosanitize'; // resolves to the browser build in a b
 | `.` Node/default | ~27 KB | ~23 KB | bundled WHATWG parser + full entity table |
 | `./legacy` | ~21 KB | ~18 KB | single-file `sanitize-html` port |
 
-Because parsing is the browser's own, the browser build is byte-for-byte what the user's browser would build — which closes parser-differential / mutation-XSS gaps by construction.
+Because parsing is the browser's own, the browser build is byte-for-byte what the user's browser would build, which closes parser-differential / mutation-XSS gaps by construction.
 
 ---
 
 ## Parser adapters
 
-The main engine's parser is **pluggable**. Each entry has an environment default (the bundled WHATWG parser in Node, native `DOMParser` in the browser), and you can override it per-`Sanitizer` with `.parser(adapter)` — keeping the exact same deny-by-default policy + serializer, swapping only how HTML becomes a tree:
+The main engine's parser is **pluggable**. Each entry has an environment default (the bundled WHATWG parser in Node, native `DOMParser` in the browser), and you can override it per-`Sanitizer` with `.parser(adapter)`, keeping the exact same deny-by-default policy + serializer, swapping only how HTML becomes a tree:
 
 ```ts
 import { Sanitizer } from 'neosanitize';
@@ -161,11 +174,11 @@ Sanitizer.builder(ugc).parser(parse5Adapter).build();      // 100% spec-conforma
 Sanitizer.builder(ugc).parser(htmlparser2Adapter).build(); // fast & lenient (sanitize-html's parser)
 ```
 
-- **`ours` (default)** — fastest, browser-faithful, zero-dependency. Tokenizer 100% / tree ~95.6% html5lib.
-- **`parse5`** — the reference WHATWG parser; pick it for **full spec conformance** on degenerate/adversarial markup (≈0.5× the speed).
-- **`htmlparser2`** — very fast and forgiving, but not a full WHATWG tree builder (no foster-parenting / foreign-content namespacing).
+- **`ours` (default)**, fastest, browser-faithful, zero-dependency. Tokenizer 100% / tree ~95.6% html5lib.
+- **`parse5`**, the reference WHATWG parser; pick it for **full spec conformance** on degenerate/adversarial markup (≈0.5× the speed).
+- **`htmlparser2`**, very fast and forgiving, but not a full WHATWG tree builder (no foster-parenting / foreign-content namespacing).
 
-Both optional adapters are peer dependencies — nothing is pulled in unless you import them. Write your own with `type ParseAdapter = (html: string) => ParentNode`. Full guide + benchmarks: [neosanitize.puruvj.dev/adapters](https://neosanitize.puruvj.dev/adapters).
+Both optional adapters are peer dependencies, nothing is pulled in unless you import them. Write your own with `type ParseAdapter = (html: string) => ParentNode`. Full guide + benchmarks: [neosanitize.puruvj.dev/adapters](https://neosanitize.puruvj.dev/adapters).
 
 ---
 
@@ -183,13 +196,13 @@ sanitize('<img src=x onerror=alert(1) />', {
 // → '<img src="x" />'  (exactly what sanitize-html produces)
 ```
 
-It reimplements `sanitize-html`'s three parsers — `htmlparser2`, `parse-srcset`, and `postcss` — **inline, with zero runtime dependencies**. Notably, `postcss` is only there to filter the `style` attribute for `allowedStyles`; our hand-written declaration parser matches it on every realistic style **and** works in the browser (the original's postcss path is Node-only). Details: [the legacy guide](https://neosanitize.puruvj.dev/legacy#zero-dependencies-what-we-replaced).
+It reimplements `sanitize-html`'s three parsers, `htmlparser2`, `parse-srcset`, and `postcss`, **inline, with zero runtime dependencies**. Notably, `postcss` is only there to filter the `style` attribute for `allowedStyles`; our hand-written declaration parser matches it on every realistic style **and** works in the browser (the original's postcss path is Node-only). Details: [the legacy guide](https://neosanitize.puruvj.dev/legacy#zero-dependencies-what-we-replaced).
 
 ---
 
-## Parsing — `neosanitize/whatwg-parser`
+## Parsing, `neosanitize/whatwg-parser`
 
-Need the tree, not the sanitizer? `neosanitize/whatwg-parser` exposes the **same browser-faithful WHATWG parser**, policy-free — zero-dep, no DOM. The tree is what a browser builds (misnesting, foster parenting, the adoption agency, all handled), and `parse()` returns a full document just like `DOMParser.parseFromString(html, 'text/html')`.
+Need the tree, not the sanitizer? `neosanitize/whatwg-parser` exposes the **same browser-faithful WHATWG parser**, policy-free, zero-dep, no DOM. The tree is what a browser builds (misnesting, foster parenting, the adoption agency, all handled), and `parse()` returns a full document just like `DOMParser.parseFromString(html, 'text/html')`.
 
 ```ts
 import { parse, findAll, textContent, serialize } from 'neosanitize/whatwg-parser';
@@ -200,7 +213,7 @@ textContent(doc); // 'onetwo'
 serialize(doc);   // round-trips to the normalized HTML the browser would produce
 ```
 
-`parse`, `serialize`, `find`/`findAll` (tag name or predicate), `walk`, `textContent`. It's a parse tree + helpers, not a full DOM — see the [parsing guide](https://neosanitize.puruvj.dev/whatwg-parser).
+`parse`, `serialize`, `find`/`findAll` (tag name or predicate), `walk`, `textContent`. It's a parse tree + helpers, not a full DOM, see the [parsing guide](https://neosanitize.puruvj.dev/whatwg-parser).
 
 ---
 
@@ -208,7 +221,7 @@ serialize(doc);   // round-trips to the normalized HTML the browser would produc
 
 Throughput vs. the original `sanitize-html`, across a 13-scenario corpus (`node bench/three-way.mjs`):
 
-- **main: geomean ~2.3× faster** than `sanitize-html` (up to 3.7× on entity-heavy input) — while doing a *full* WHATWG-conformant parse + tree construction. On heavy/adversarial inputs (XSS payloads, attribute-dense markup, big tables) it now **matches or beats** `./legacy`.
+- **main: geomean ~2.3× faster** than `sanitize-html` (up to 3.7× on entity-heavy input), while doing a *full* WHATWG-conformant parse + tree construction. On heavy/adversarial inputs (XSS payloads, attribute-dense markup, big tables) it now **matches or beats** `./legacy`.
 - The `./legacy` port (~2.7×) edges ahead only on benign prose and tiny documents, where its `htmlparser2`-style streaming parse skips the tree's fixed setup cost.
 
 Both engines compile their policy once and reuse it, so the hot path is just parse → walk → serialize.
@@ -228,7 +241,7 @@ Full threat model and responsible-disclosure process: [SECURITY.md](./SECURITY.m
 ## Conformance & tests
 
 - **Tokenizer:** 100% of the vendored html5lib tokenizer suite (6946/6946).
-- **Tree construction:** ~95.6% of the html5lib tree-construction suite (ratcheted upward). The remaining divergences are degenerate adoption-agency/`<nobr>`/table nesting and bleeding-edge `<select>` cases — tree-shape differences that don't affect sanitization safety (output stays safe + reparse-stable).
+- **Tree construction:** ~95.6% of the html5lib tree-construction suite (ratcheted upward). The remaining divergences are degenerate adoption-agency/`<nobr>`/table nesting and bleeding-edge `<select>` cases, tree-shape differences that don't affect sanitization safety (output stays safe + reparse-stable).
 - **Legacy parity:** the `./legacy` port is differential-fuzzed against `sanitize-html` itself.
 
 ```bash
@@ -244,8 +257,8 @@ pnpm bench:3way  # original vs legacy vs main
 
 This project stands on two MIT-licensed projects:
 
-- **[sanitize-html](https://github.com/apostrophecms/sanitize-html)** (Apostrophe Technologies, Inc.) — the `./legacy` entry point is a faithful re-implementation of its behaviour. MIT.
-- **[html5lib-tests](https://github.com/html5lib/html5lib-tests)** (html5lib contributors) — vendored under `test/fixtures/` as the parser-conformance oracle for the main engine (test-only; not shipped in the published package). MIT.
+- **[sanitize-html](https://github.com/apostrophecms/sanitize-html)** (Apostrophe Technologies, Inc.), the `./legacy` entry point is a faithful re-implementation of its behaviour. MIT.
+- **[html5lib-tests](https://github.com/html5lib/html5lib-tests)** (html5lib contributors), vendored under `test/fixtures/` as the parser-conformance oracle for the main engine (test-only; not shipped in the published package). MIT.
 
 ## License
 

@@ -2,14 +2,14 @@
  * URL (native-`URL`-backed) + CSS safe-subset tests for the main Sanitizer.
  */
 import { describe, it, expect } from 'vitest';
-import { Sanitizer, type Policy } from '../../src/main/index';
+import { Sanitizer } from '../../src/main/index';
 
-const policy: Policy = {
-  tags: new Set(['p', 'a', 'div', 'img']),
-  attrs: new Map<string, Set<string>>([['*', new Set(['style'])], ['a', new Set(['href'])], ['img', new Set(['src'])]]),
-  allowUnsafe: false
-};
-const s = new Sanitizer(policy);
+const s = Sanitizer.builder()
+  .allow(['p', 'a', 'div', 'img'])
+  .allow('*', ['style'])
+  .allow('a', ['href'])
+  .allow('img', ['src'])
+  .build();
 
 describe('URL safety (native URL parser)', () => {
   it('keeps safe schemes + relative', () => {

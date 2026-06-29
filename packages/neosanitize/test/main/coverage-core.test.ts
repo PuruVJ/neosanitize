@@ -7,10 +7,10 @@
 import { describe, it, expect } from 'vitest';
 import { Sanitizer } from '../../src/main/index';
 
-const url = Sanitizer.builder({ tags: ['a'], attrs: { a: ['href'] } }).build();
+const url = Sanitizer.builder().allow('a', ['href']).build();
 const href = (v: string) => url.sanitizeWithReport(`<a href="${v}">x</a>`).removed.some((r) => r.kind === 'url');
 
-const styled = Sanitizer.builder({ tags: ['p'], attrs: { p: ['style'] } }).build();
+const styled = Sanitizer.builder().allow('p', ['style']).build();
 const css = (v: string) => styled.sanitize(`<p style="${v}">x</p>`);
 
 describe('dangerousUrl — fast + slow paths', () => {
@@ -82,8 +82,8 @@ describe('builder + unsafe entry points', () => {
     const s = Sanitizer.builder().allow('b').build();
     expect(s.sanitize('<b>x</b><i>y</i>')).toBe('<b>x</b>y');
   });
-  it('builder() seeded from a partial policy object', () => {
-    const s = Sanitizer.builder({ tags: ['em'], attrs: { em: ['class'] }, allowUnsafe: false }).build();
+  it('builder() with a tag + attrs', () => {
+    const s = Sanitizer.builder().allow('em', ['class']).build();
     expect(s.sanitize('<em class="a">x</em>')).toBe('<em class="a">x</em>');
   });
   it('sanitizeUnsafe re-parses with the same parser and the baseline off', () => {
@@ -93,14 +93,14 @@ describe('builder + unsafe entry points', () => {
   it('report distinguishes event-handler from dangerous-url removals', () => {
     // onclick must be allow-listed so the BASELINE (not the allow-list) strips it,
     // yielding reason "event-handler"; the js: href yields "dangerous-url".
-    const s = Sanitizer.builder({ tags: ['a'], attrs: { a: ['onclick', 'href'] } }).build();
+    const s = Sanitizer.builder().allow('a', ['onclick', 'href']).build();
     const reasons = s.sanitizeWithReport('<a onclick="x()" href="javascript:1">y</a>').removed.map((r) => r.reason);
     expect(reasons).toContain('event-handler');
     expect(reasons).toContain('dangerous-url');
   });
 
-  it('partial policies may omit tags / attrs / allowUnsafe', () => {
-    expect(Sanitizer.builder({ attrs: { a: ['href'] } }).build().sanitize('<a href="/x">y</a>')).toBe('y'); // no tags → all dropped/unwrapped
-    expect(Sanitizer.builder({ tags: ['b'] }).build().sanitize('<b>x</b>')).toBe('<b>x</b>'); // no attrs key
+  it('an empty builder drops everything; a tag with no attrs keeps the tag only', () => {
+    expect(Sanitizer.builder().build().sanitize('<a href="/x">y</a>')).toBe('y'); // nothing allowed → unwrapped
+    expect(Sanitizer.builder().allow('b').build().sanitize('<b>x</b>')).toBe('<b>x</b>'); // tag kept, no attrs
   });
 });
