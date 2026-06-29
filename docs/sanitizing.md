@@ -44,16 +44,16 @@ const s = Sanitizer.builder(presets.basic)
 
 ## Dynamic tags {#dynamic-tags}
 
-When the tag set follows a convention rather than a fixed list (custom elements like `qds-*` / `se-*`, web components, a design-system prefix), pass a `RegExp` or predicate to `allow` instead of a name. Use `'*'` to allow any attribute on matched tags:
+When the tag set follows a convention rather than a fixed list (custom elements like `ui-*` / `wc-*`, web components, a design-system prefix), pass a `RegExp` or predicate to `allow` instead of a name. Use `'*'` to allow any attribute on matched tags:
 
 ```ts
 const s = Sanitizer.builder(ugc)
-  .allow(/^(qds|se)-/, '*')             // regex + any attribute
+  .allow(/^(ui|wc)-/, '*')              // regex + any attribute
   .allow((tag) => tag.startsWith('x-')) // or a predicate
   .build();
 ```
 
-This is compiled once, not evaluated per call. A matched tag is resolved on first sight and memoized, so repeated tags stay O(1). The inviolable baseline still applies to matched tags: a `<qds-link onclick=... href="javascript:...">` keeps neither the handler nor the URL.
+This is compiled once, not evaluated per call. A matched tag is resolved on first sight and memoized, so repeated tags stay O(1). The inviolable baseline still applies to matched tags: a `<ui-link onclick=... href="javascript:...">` keeps neither the handler nor the URL.
 
 ## Transforming attributes {#transforming-attributes}
 
@@ -80,7 +80,7 @@ A common setup is one shared `Sanitizer` built at startup and reused everywhere,
 export const sanitizer = Sanitizer.builder(ugc).build();
 
 // at the one place that renders design-system markup
-const withComponents = sanitizer.toExtended((b) => b.allow(/^(qds|se)-/, '*'));
+const withComponents = sanitizer.toExtended((b) => b.allow(/^(ui|wc)-/, '*'));
 withComponents.sanitize(input);
 ```
 

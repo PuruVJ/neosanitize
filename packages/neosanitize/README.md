@@ -85,7 +85,7 @@ const s = Sanitizer.builder(presets.basic) // start from a preset (or a partial 
 
 ```ts
 const s = Sanitizer.builder(presets.ugc)
-  .allow(/^(qds|se)-/, '*')                              // dynamic custom-element tags
+  .allow(/^(ui|wc)-/, '*')                               // dynamic custom-element tags
   .transformAttribute(({ name, value }) =>               // arbitrary per-attribute logic
     name === 'class' ? value.replace(/\binternal-\S+/g, '').trim() : value)
   .build();

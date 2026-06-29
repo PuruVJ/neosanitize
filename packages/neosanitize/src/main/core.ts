@@ -638,7 +638,7 @@ export class SanitizerCore {
    * can be derived from per call site without affecting other importers.
    *
    *   const base = Sanitizer.builder(ugc).build();
-   *   const withCustom = base.toExtended((b) => b.allow(/^(qds|se)-/, '*'));
+   *   const withCustom = base.toExtended((b) => b.allow(/^(ui|wc)-/, '*'));
    */
   toExtended(configure: (builder: SanitizerBuilder<this>) => unknown): this {
     const ctor = this.constructor as new (policy?: Policy, opts?: SanitizerOptions) => this;
@@ -715,7 +715,7 @@ export class SanitizerBuilder<T extends SanitizerCore = SanitizerCore> {
   /**
    * Allow tags. `tag` is an exact name, an array of names (bulk, no attributes), or
    * a `RegExp` / predicate to match by pattern (custom-element conventions like
-   * `qds-*` whose full set isn't known up front). `attrs` is a list of attribute
+   * `ui-*` whose full set isn't known up front). `attrs` is a list of attribute
    * names, or `'*'` for any attribute. `allow('*', [...])` sets attributes allowed
    * on every tag. Allowed and pattern-matched tags still pass through the inviolable
    * baseline (their `on*` handlers and dangerous URLs are stripped); pattern matches
@@ -723,7 +723,7 @@ export class SanitizerBuilder<T extends SanitizerCore = SanitizerCore> {
    *
    *   b.allow('a', ['href', 'title'])
    *   b.allow(['p', 'b', 'i'])
-   *   b.allow(/^(qds|se)-/, '*')
+   *   b.allow(/^(ui|wc)-/, '*')
    */
   allow(tag: string | string[] | TagMatcher, attrs?: '*' | Iterable<string>): this {
     if (typeof tag === 'string') {
