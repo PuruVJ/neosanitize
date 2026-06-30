@@ -37,6 +37,36 @@ export type { ElementNode, TextNode, CommentNode, DoctypeNode, DocumentNode, Tre
  */
 export type ParseAdapter = (html: string) => ParentNode;
 
+/** Matches tag names to allow dynamically: a `RegExp` (tested against the tag) or
+ * a predicate. See `SanitizerBuilder.allow`. */
+export type TagMatcher = RegExp | ((tag: string) => boolean);
+
+/** Passed to a `transformAttribute` hook for one surviving attribute. */
+export interface AttributeContext {
+  readonly tag: string;
+  readonly name: string;
+  readonly value: string;
+}
+
+/** A `transformAttribute` hook: return a replacement value, `null` to drop the
+ * attribute, or `undefined` to leave it unchanged. The result is re-checked by the
+ * inviolable baseline, so a hook can rewrite or drop but never reintroduce an
+ * `on*` handler or a dangerous-scheme URL. See `SanitizerBuilder.transformAttribute`. */
+export type AttributeTransform = (attr: AttributeContext) => string | null | undefined;
+
+/** Compiled tag matcher (predicate + the attributes allowed on matched tags). */
+interface CompiledMatcher {
+  readonly test: (tag: string) => boolean;
+  readonly attrs: ReadonlySet<string> | null;
+}
+
+/** Non-policy construction options threaded builder -> concrete `Sanitizer`. */
+export interface SanitizerOptions {
+  parser?: ParseAdapter | null;
+  matchers?: readonly CompiledMatcher[];
+  attrHook?: AttributeTransform | null;
+}
+
 export const version = '0.0.0-dev';
 
 // ---------------------------------------------------------------------------
@@ -75,28 +105,15 @@ export interface Policy {
   readonly allowUnsafe: boolean;
 }
 
-/** A partial policy or a named preset, accepted anywhere a policy is. */
-export type PolicyInput = Partial<MutablePolicy> | Preset;
-
 /**
- * Brand symbol identifying a value as a built {@link Preset}. Exported so preset
- * modules (e.g. `neosanitize/presets/*`) and advanced users authoring their own
- * presets can stamp it, the `UNSAFE_` name signals that hand-stamping bypasses
- * normal `Sanitizer` construction and is the caller's responsibility.
+ * A preset is a function that applies rules to a builder. Presets compose: a
+ * preset can call `b.preset(other)`. The curated presets in `neosanitize/presets`
+ * (`none` / `basic` / `ugc` / `markdown`) are values of this type.
+ *
+ *   const corporate: Preset = (b) => b.preset(ugc).allow(/^acme-/, '*');
+ *   Sanitizer.builder(corporate).build();
  */
-export const UNSAFE_PRESET_SYMBOL: unique symbol = Symbol('neosanitize.preset');
-
-export interface Preset {
-  readonly [UNSAFE_PRESET_SYMBOL]: true;
-  readonly name: string;
-  readonly policy: Policy;
-}
-
-interface MutablePolicy {
-  tags: Iterable<string>;
-  attrs: Record<string, Iterable<string>>;
-  allowUnsafe: boolean;
-}
+export type Preset = (builder: SanitizerBuilder) => void;
 
 const EMPTY_POLICY: Policy = {
   tags: new Set(),
@@ -111,6 +128,12 @@ const THROW_NO_PARSER: ParseAdapter = () => {
   throw new Error('neosanitize: no parse adapter. Use the `Sanitizer` from "neosanitize" (or "neosanitize/browser"), or pass one via `.parser(adapter)`.');
 };
 
+const EMPTY_MATCHERS: readonly CompiledMatcher[] = [];
+/** Upper bound on tag names memoized from pattern (`allow`) resolution, so a hostile
+ * input with many distinct unknown tag names can't grow the cache without limit.
+ * Past the cap, matchers still run, the result just isn't cached. */
+const DYNAMIC_TAG_CACHE_CAP = 4096;
+
 /** Precomputed serialize data for one allow-listed ("keep") tag. See `tagCache`. */
 interface TagSer {
   /** The open-tag prefix `<name` (sans attributes and `>`). */
@@ -121,8 +144,12 @@ interface TagSer {
   readonly isVoid: boolean;
   /** Raw-text element, text children serialize unescaped. */
   readonly rawText: boolean;
-  /** Resolved allow-listed attributes (tag-specific ∪ `*`); null = none allowed. */
+  /** Resolved allow-listed attributes (tag-specific ∪ `*`); null = none allowed.
+   * Ignored when `allowAll` is true. */
   readonly attrSet: ReadonlySet<string> | null;
+  /** Allow ANY attribute on this tag (from a `'*'` entry in its attr list). The
+   * baseline still strips `on*` / dangerous URLs. */
+  readonly allowAll: boolean;
 }
 
 // Minimal Trusted Types shapes, not in the configured DOM lib, and we stay
@@ -218,32 +245,71 @@ export class SanitizerCore {
    * to the slow drop/unwrap path. Collapses the per-element baseline/allow-list/
    * void/raw-text `Set.has` chain and the open/close-tag concatenations into one
    * `Map.get` plus field reads on the serialize hot path. */
-  private readonly tagCache: Map<string, TagSer>;
+  // null = computed and disallowed (memoized negative); missing = not yet computed.
+  private readonly tagCache: Map<string, TagSer | null>;
+  /** Patterns that allow tags by name (from `allow` with a pattern), consulted only on a
+   * tagCache miss. Empty in the common case, so the hot path is unchanged. */
+  private readonly matchers: readonly CompiledMatcher[];
+  /** Per-attribute transform hook (from `transformAttribute`), or null. */
+  private readonly attrHook: AttributeTransform | null;
+  /** Count of dynamically memoized tags, bounded by DYNAMIC_TAG_CACHE_CAP. */
+  private dynamicCacheCount = 0;
 
-  constructor(policy: Policy = EMPTY_POLICY, defaultParse: ParseAdapter = THROW_NO_PARSER, parserOverride: ParseAdapter | null = null) {
+  constructor(policy: Policy = EMPTY_POLICY, defaultParse: ParseAdapter = THROW_NO_PARSER, opts: SanitizerOptions = {}) {
     // The constructor is where the expensive compilation happens once: resolving
     // the policy into the fast structures `.sanitize()` reuses.
     this.policy = policy;
     this.defaultParse = defaultParse;
-    this.parserOverride = parserOverride;
-    const cache = new Map<string, TagSer>();
-    const star = policy.attrs.get('*');
+    this.parserOverride = opts.parser ?? null;
+    this.matchers = opts.matchers ?? EMPTY_MATCHERS;
+    this.attrHook = opts.attrHook ?? null;
+    const cache = new Map<string, TagSer | null>();
     for (const tag of policy.tags) {
       // baseline-dropped tags (e.g. <script>) are NOT cached as keep → slow path.
       if (!policy.allowUnsafe && BASELINE_DROP.has(tag)) continue;
-      const own = policy.attrs.get(tag);
-      let attrSet: ReadonlySet<string> | null;
-      if (own && star) { const m = new Set(own); for (const a of star) m.add(a); attrSet = m; }
-      else attrSet = own ?? star ?? null;
-      cache.set(tag, {
-        open: '<' + tag,
-        close: '</' + tag + '>',
-        isVoid: VOID_ELEMENTS.has(tag),
-        rawText: RAW_TEXT_ELEMENTS.has(tag),
-        attrSet,
-      });
+      cache.set(tag, this.buildTagSer(tag, policy.attrs.get(tag) ?? null));
     }
     this.tagCache = cache;
+  }
+
+  /** Precompute the serialize data for one kept tag, merging its own allowed
+   * attributes with the `*` (any-tag) set. A `'*'` entry in `own` means "all
+   * attributes" (the baseline still applies). */
+  private buildTagSer(tag: string, own: ReadonlySet<string> | null): TagSer {
+    const allowAll = own !== null && own.has('*');
+    const star = this.policy.attrs.get('*');
+    let attrSet: ReadonlySet<string> | null;
+    if (allowAll) attrSet = null;
+    else if (own && star) { const m = new Set(own); for (const a of star) m.add(a); attrSet = m; }
+    else attrSet = own ?? star ?? null;
+    return {
+      open: '<' + tag,
+      close: '</' + tag + '>',
+      isVoid: VOID_ELEMENTS.has(tag),
+      rawText: RAW_TEXT_ELEMENTS.has(tag),
+      attrSet,
+      allowAll,
+    };
+  }
+
+  /** The keep-info for a tag, or null if it should be dropped/unwrapped. Static
+   * allow-listed tags hit the prebuilt cache; otherwise the matchers are consulted
+   * (and the result memoized, bounded). The single tag decision for every path. */
+  private tagInfo(tag: string): TagSer | null {
+    const cached = this.tagCache.get(tag);
+    if (cached !== undefined) return cached; // TagSer (keep) or null (memoized disallowed)
+    if (this.matchers.length === 0) return null;
+    let ser: TagSer | null = null;
+    if (this.policy.allowUnsafe || !BASELINE_DROP.has(tag)) {
+      for (let i = 0; i < this.matchers.length; i++) {
+        if (this.matchers[i].test(tag)) { ser = this.buildTagSer(tag, this.matchers[i].attrs); break; }
+      }
+    }
+    if (this.dynamicCacheCount < DYNAMIC_TAG_CACHE_CAP) {
+      this.tagCache.set(tag, ser);
+      this.dynamicCacheCount++;
+    }
+    return ser;
   }
 
   /**
@@ -339,15 +405,18 @@ export class SanitizerCore {
       if (child.type === 'text') {
         domParent.appendChild(document.createTextNode(child.value));
       } else if (child.type === 'element') {
-        const action = this.elementAction(child);
-        if (action === 'drop') continue;
-        if (action === 'unwrap') { this.buildDom(child, domParent); continue; }
+        const info = this.tagInfo(child.name);
+        if (info === null) {
+          if (this.elementAction(child) === 'drop') continue;
+          this.buildDom(child, domParent); // unwrap
+          continue;
+        }
         const el = document.createElement(child.name);
-        for (const [name, v] of this.filterAttrs(child, null)) {
+        for (const [name, v] of this.filterAttrs(child, null, info.attrSet, info.allowAll)) {
           try { el.setAttribute(SanitizerCore.serializeAttrName(name), v); } catch { /* invalid attr name */ }
         }
         domParent.appendChild(el);
-        if (!VOID_ELEMENTS.has(child.name)) this.buildDom(child, el);
+        if (!info.isVoid) this.buildDom(child, el);
       }
     }
   }
@@ -371,27 +440,38 @@ export class SanitizerCore {
   /** Filtered, sanitized attributes for a kept element; records drops if `removed`.
    * Lazily allocates: when nothing is dropped or rewritten (the common case) it
    * returns `el.attrs` itself, so attribute-clean elements cost zero allocations. */
-  private filterAttrs(el: ElementNode, removed: Removal[] | null, allowed?: ReadonlySet<string> | null): Array<[string, string]> {
+  private filterAttrs(el: ElementNode, removed: Removal[] | null, allowed: ReadonlySet<string> | null, allowAll: boolean): Array<[string, string]> {
     const baseline = !this.policy.allowUnsafe;
     const src = el.attrs;
-    // `allowed` precomputed by the string serializer (set, or null = none);
-    // `undefined` means the caller (buildDom) didn't, so fall back to attrAllowed.
-    const useSet = allowed !== undefined;
     let kept: Array<[string, string]> | null = null;
     for (let i = 0; i < src.length; i++) {
       const pair = src[i];
       const name = pair[0], value = pair[1];
       let drop = false;
       let v = value;
-      if (useSet ? !(allowed !== null && allowed.has(name)) : !this.attrAllowed(el.name, name)) { removed?.push({ kind: 'attr', name, reason: 'not-allowed' }); drop = true; }
-      else if (baseline && SanitizerCore.attrUnsafe(name, value)) {
-        const ev = name[0] === 'o' && name[1] === 'n';
-        removed?.push({ kind: ev ? 'attr' : 'url', name, reason: ev ? 'event-handler' : 'dangerous-url' });
+      const allowedHere = allowAll || (allowed !== null && allowed.has(name));
+      if (!allowedHere) {
+        removed?.push({ kind: 'attr', name, reason: 'not-allowed' });
         drop = true;
-      } else if (baseline && name === 'style') {
-        v = SanitizerCore.sanitizeStyle(value);
-        if (v === '') { removed?.push({ kind: 'style', name, reason: 'unsafe-css' }); drop = true; }
-        else if (v !== value) removed?.push({ kind: 'style', name, reason: 'unsafe-css-declaration' });
+      } else {
+        // transform hook runs on allow-listed attrs only (it can rewrite or drop,
+        // never resurrect a denied one), and its result still goes through the baseline.
+        if (this.attrHook !== null) {
+          const r = this.attrHook({ tag: el.name, name, value: v });
+          if (r === null) { removed?.push({ kind: 'attr', name, reason: 'transformed-out' }); drop = true; }
+          else if (r !== undefined) v = r;
+        }
+        if (!drop && baseline) {
+          if (SanitizerCore.attrUnsafe(name, v)) {
+            const ev = name[0] === 'o' && name[1] === 'n';
+            removed?.push({ kind: ev ? 'attr' : 'url', name, reason: ev ? 'event-handler' : 'dangerous-url' });
+            drop = true;
+          } else if (name === 'style') {
+            v = SanitizerCore.sanitizeStyle(v);
+            if (v === '') { removed?.push({ kind: 'style', name, reason: 'unsafe-css' }); drop = true; }
+            else if (v !== value) removed?.push({ kind: 'style', name, reason: 'unsafe-css-declaration' });
+          }
+        }
       }
       if (drop || v !== value) {
         if (kept === null) kept = src.slice(0, i); // first divergence → copy the kept prefix
@@ -416,9 +496,8 @@ export class SanitizerCore {
     }
   }
   private emitElement(el: ElementNode, out: StringSink, removed: Removal[] | null): void {
-    const info = this.tagCache.get(el.name);
-    if (info === undefined) {
-      // Slow path: not an allow-listed keep tag → drop (with content) or unwrap.
+    const info = this.tagInfo(el.name);
+    if (info === null) {
       const action = this.elementAction(el);
       if (action === 'drop') { removed?.push({ kind: 'tag', name: el.name, reason: 'unsafe-element' }); return; }
       // html/head/body are implicit document structure, not user-content removals
@@ -430,7 +509,7 @@ export class SanitizerCore {
     }
     out.push(info.open);
     if (el.attrs.length !== 0) {
-      const attrs = this.filterAttrs(el, removed, info.attrSet);
+      const attrs = this.filterAttrs(el, removed, info.attrSet, info.allowAll);
       for (let k = 0; k < attrs.length; k++) {
         const a = attrs[k];
         out.push(' ' + SanitizerCore.serializeAttrName(a[0]) + '="' + SanitizerCore.escapeAttr(a[1]) + '"');
@@ -440,13 +519,6 @@ export class SanitizerCore {
     if (info.isVoid) return;
     this.emitChildren(el, out, info.rawText, removed);
     out.push(info.close);
-  }
-
-  private attrAllowed(tag: string, attr: string): boolean {
-    const t = this.policy.attrs.get(tag);
-    if (t && t.has(attr)) return true;
-    const star = this.policy.attrs.get('*');
-    return star !== undefined && star.has(attr);
   }
 
   private static attrUnsafe(name: string, value: string): boolean {
@@ -552,21 +624,57 @@ export class SanitizerCore {
 
   /** Escape hatch: skip the inviolable baseline (mirrors `setHTMLUnsafe`). */
   sanitizeUnsafe(html: string): string {
-    // Re-parse with the SAME concrete entry (this.constructor) AND the same parser
-    // override, baseline off, so the active adapter is preserved.
-    const Ctor = this.constructor as new (policy?: Policy, parser?: ParseAdapter | null) => SanitizerCore;
-    return new Ctor({ ...this.policy, allowUnsafe: true }, this.parserOverride).sanitize(html);
+    // Re-parse with the SAME concrete entry (this.constructor) and the same parser,
+    // matchers, and hook, baseline off, so behaviour is otherwise identical.
+    const Ctor = this.constructor as new (policy?: Policy, opts?: SanitizerOptions) => SanitizerCore;
+    return new Ctor({ ...this.policy, allowUnsafe: true }, { parser: this.parserOverride, matchers: this.matchers, attrHook: this.attrHook }).sanitize(html);
   }
 
   /**
-   * Class-based factory, the entry point: `Sanitizer.builder().preset(…).build()`.
-   * Polymorphic over the concrete subclass: `Sanitizer.builder()` yields a builder
-   * whose `.build()` returns that same `Sanitizer` (so the correct parser is wired).
+   * Return a new `Sanitizer` derived from this one with extra config, without
+   * re-declaring the base policy. The callback receives a builder pre-seeded with
+   * this instance's tags, attributes, matchers, hook, and parser. Immutable, like
+   * `Array.prototype.toSorted`: this sanitizer is never changed, so a shared base
+   * can be derived from per call site without affecting other importers.
+   *
+   *   const base = Sanitizer.builder(ugc).build();
+   *   const withCustom = base.toExtended((b) => b.allow(/^(ui|wc)-/, '*'));
    */
-  static builder<T extends SanitizerCore>(this: new (policy?: Policy, parser?: ParseAdapter | null) => T, base?: PolicyInput): SanitizerBuilder<T> {
-    const b = new SanitizerBuilder<T>(this);
-    return base ? b.preset(base) : b;
+  toExtended(configure: (builder: SanitizerBuilder<this>) => unknown): this {
+    const ctor = this.constructor as new (policy?: Policy, opts?: SanitizerOptions) => this;
+    const b = new SanitizerBuilder<this>(ctor, {
+      tags: this.policy.tags,
+      attrs: this.policy.attrs,
+      allowUnsafe: this.policy.allowUnsafe,
+      parser: this.parserOverride,
+      matchers: this.matchers,
+      attrHook: this.attrHook,
+    });
+    configure(b);
+    return b.build();
   }
+
+  /**
+   * The one entry point. `Sanitizer.builder()` yields a builder; chain `.allow()`
+   * etc. and call `.build()`. Pass a preset to seed it: `Sanitizer.builder(ugc)`.
+   * Polymorphic over the concrete subclass, so `.build()` returns that same
+   * `Sanitizer` (the correct environment parser stays wired).
+   */
+  static builder<T extends SanitizerCore>(this: new (policy?: Policy, opts?: SanitizerOptions) => T, preset?: Preset): SanitizerBuilder<T> {
+    const b = new SanitizerBuilder<T>(this);
+    if (preset) b.preset(preset);
+    return b;
+  }
+}
+
+/** Internal seed for `SanitizerBuilder`, used by `SanitizerCore.extend`. */
+interface BuilderSeed {
+  readonly tags: Iterable<string>;
+  readonly attrs: ReadonlyMap<string, ReadonlySet<string>>;
+  readonly allowUnsafe: boolean;
+  readonly parser: ParseAdapter | null;
+  readonly matchers: readonly CompiledMatcher[];
+  readonly attrHook: AttributeTransform | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -578,9 +686,21 @@ export class SanitizerBuilder<T extends SanitizerCore = SanitizerCore> {
   private _attrs = new Map<string, Set<string>>();
   private _allowUnsafe = false;
   private _parser: ParseAdapter | null = null;
+  private _matchers: CompiledMatcher[] = [];
+  private _attrHook: AttributeTransform | null = null;
 
-  /** @param ctor the concrete `Sanitizer` subclass to instantiate at `build()`. */
-  constructor(private readonly ctor: new (policy?: Policy, parser?: ParseAdapter | null) => T) {}
+  /** @param ctor the concrete `Sanitizer` subclass to instantiate at `build()`.
+   *  @param seed pre-existing config to copy in (used by `SanitizerCore.extend`). */
+  constructor(private readonly ctor: new (policy?: Policy, opts?: SanitizerOptions) => T, seed?: BuilderSeed) {
+    if (seed) {
+      for (const t of seed.tags) this._tags.add(t);
+      for (const [tag, set] of seed.attrs) this._attrs.set(tag, new Set(set));
+      this._allowUnsafe = seed.allowUnsafe;
+      this._parser = seed.parser;
+      this._matchers = [...seed.matchers];
+      this._attrHook = seed.attrHook;
+    }
+  }
 
   /**
    * Override the parser. Pass an adapter (e.g. `parse5Adapter` from
@@ -592,33 +712,72 @@ export class SanitizerBuilder<T extends SanitizerCore = SanitizerCore> {
     return this;
   }
 
-  /** Start from a preset (or another policy), then refine. */
-  preset(p: PolicyInput): this {
-    const pol = SanitizerBuilder.resolve(p);
-    for (const t of pol.tags) this._tags.add(t);
-    for (const [tag, set] of pol.attrs) {
-      const into = this._attrs.get(tag) ?? new Set<string>();
-      for (const a of set) into.add(a);
-      this._attrs.set(tag, into);
+  /**
+   * Allow tags. `tag` is an exact name, an array of names (bulk, no attributes), or
+   * a `RegExp` / predicate to match by pattern (custom-element conventions like
+   * `ui-*` whose full set isn't known up front). `attrs` is a list of attribute
+   * names, or `'*'` for any attribute. `allow('*', [...])` sets attributes allowed
+   * on every tag. Allowed and pattern-matched tags still pass through the inviolable
+   * baseline (their `on*` handlers and dangerous URLs are stripped); pattern matches
+   * are memoized so repeated tags stay fast.
+   *
+   *   b.allow('a', ['href', 'title'])
+   *   b.allow(['p', 'b', 'i'])
+   *   b.allow(/^(ui|wc)-/, '*')
+   */
+  allow(tag: string | string[] | TagMatcher, attrs?: '*' | Iterable<string>): this {
+    if (typeof tag === 'string') {
+      this.addTag(tag, attrs);
+    } else if (Array.isArray(tag)) {
+      for (const t of tag) this.addTag(t, attrs);
+    } else {
+      // a global regex has stateful lastIndex across .test() calls; use a fresh non-global copy.
+      const fn = tag instanceof RegExp
+        ? ((re) => (t: string) => re.test(t))(tag.global ? new RegExp(tag.source, tag.flags.replace('g', '')) : tag)
+        : tag;
+      this._matchers.push({ test: fn, attrs: attrs == null ? null : new Set(attrs === '*' ? ['*'] : attrs) });
     }
     return this;
   }
 
-  /** Allow a tag (optionally with attributes). */
-  allow(tag: string, attrs?: Iterable<string>): this {
-    this._tags.add(tag);
-    if (attrs) {
-      const into = this._attrs.get(tag) ?? new Set<string>();
-      for (const a of attrs) into.add(a);
-      this._attrs.set(tag, into);
+  /** Remove tag(s) from the static allow-list (does not touch pattern matchers). */
+  deny(tag: string | string[]): this {
+    for (const t of typeof tag === 'string' ? [tag] : tag) {
+      this._tags.delete(t);
+      this._attrs.delete(t);
     }
     return this;
   }
 
-  /** Remove a tag from the allow-list. */
-  deny(tag: string): this {
-    this._tags.delete(tag);
-    this._attrs.delete(tag);
+  /** Apply a preset: a `(builder) => void` function. Presets compose. */
+  preset(p: Preset): this {
+    p(this);
+    return this;
+  }
+
+  /**
+   * Register a per-attribute transform, run on every allow-listed attribute. Return
+   * a replacement value, `null` to drop the attribute, or `undefined` to leave it.
+   * The result is re-checked by the inviolable baseline, so a hook can rewrite or
+   * drop but never reintroduce an `on*` handler or dangerous-scheme URL. Multiple
+   * calls compose in order (a `null` from any short-circuits to a drop).
+   *
+   * Note: stripping `on*` handlers needs no hook, the baseline already does that.
+   */
+  transformAttribute(hook: AttributeTransform): this {
+    const prev = this._attrHook;
+    this._attrHook = prev === null ? hook : (attr) => {
+      const r = prev(attr);
+      if (r === null) return null;
+      return hook(r === undefined ? attr : { tag: attr.tag, name: attr.name, value: r });
+    };
+    return this;
+  }
+
+  /** Skip the inviolable baseline for sanitizers built here. Dangerous: an allow-list
+   * can then surface `on*` handlers / `javascript:` URLs. Off by default. */
+  allowUnsafe(on = true): this {
+    this._allowUnsafe = on;
     return this;
   }
 
@@ -628,17 +787,15 @@ export class SanitizerBuilder<T extends SanitizerCore = SanitizerCore> {
       tags: new Set(this._tags),
       attrs: new Map([...this._attrs].map(([t, s]) => [t, new Set(s)])),
       allowUnsafe: this._allowUnsafe
-    }, this._parser);
+    }, { parser: this._parser, matchers: [...this._matchers], attrHook: this._attrHook });
   }
 
-  /** Resolve a preset or partial-policy input into an immutable `Policy`. */
-  private static resolve(p: PolicyInput): Policy {
-    if ((p as Preset)[UNSAFE_PRESET_SYMBOL] === true) return (p as Preset).policy;
-    const m = p as Partial<MutablePolicy>;
-    return {
-      tags: new Set(m.tags ?? []),
-      attrs: new Map(Object.entries(m.attrs ?? {}).map(([t, s]) => [t, new Set(s)])),
-      allowUnsafe: m.allowUnsafe ?? false
-    };
+  /** Add one exact tag with optional attributes (`'*'` tag = global attrs only). */
+  private addTag(tag: string, attrs?: '*' | Iterable<string>): void {
+    if (tag !== '*') this._tags.add(tag);
+    if (attrs == null) return;
+    const into = this._attrs.get(tag) ?? new Set<string>();
+    for (const a of attrs === '*' ? ['*'] : attrs) into.add(a);
+    this._attrs.set(tag, into);
   }
 }

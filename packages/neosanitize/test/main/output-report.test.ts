@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import { Sanitizer } from '../../src/main/index';
 import * as presets from '../../src/main/presets';
 
-const s = new Sanitizer(presets.ugc.policy);
+const s = Sanitizer.builder(presets.ugc).build();
 
 describe('output targets', () => {
   it('sanitizeToText strips markup and excludes script/style content', () => {
@@ -31,7 +31,7 @@ describe('report mode', () => {
     expect(r.removed.some((x) => x.name === 'html' || x.name === 'head' || x.name === 'body')).toBe(false);
   });
   it('reports unsafe CSS', () => {
-    const styleS = new Sanitizer({ tags: new Set(['p']), attrs: new Map<string, Set<string>>([['p', new Set(['style'])]]), allowUnsafe: false });
+    const styleS = Sanitizer.builder().allow('p', ['style']).build();
     const r = styleS.sanitizeWithReport('<p style="behavior:url(x)">y</p>');
     expect(r.removed.some((x) => x.kind === 'style')).toBe(true);
     expect(r.html).toBe('<p>y</p>');

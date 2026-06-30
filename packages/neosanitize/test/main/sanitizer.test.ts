@@ -9,18 +9,15 @@
  * idempotence (`sanitize∘sanitize = sanitize`, i.e. reparse-stability).
  */
 import { describe, it, expect } from 'vitest';
-import { Sanitizer, type Policy } from '../../src/main/index';
+import { Sanitizer, type Preset } from '../../src/main/index';
 
-const ugcLike: Policy = {
-  tags: new Set(['p', 'a', 'b', 'i', 'em', 'strong', 'span', 'div', 'ul', 'ol', 'li', 'img', 'h1', 'h2', 'h3', 'code', 'pre', 'br', 'blockquote']),
-  attrs: new Map<string, Set<string>>([
-    ['a', new Set(['href', 'title'])],
-    ['img', new Set(['src', 'alt'])],
-    ['*', new Set(['class'])]
-  ]),
-  allowUnsafe: false
+const ugcLike: Preset = (b) => {
+  b.allow(['p', 'a', 'b', 'i', 'em', 'strong', 'span', 'div', 'ul', 'ol', 'li', 'img', 'h1', 'h2', 'h3', 'code', 'pre', 'br', 'blockquote'])
+    .allow('a', ['href', 'title'])
+    .allow('img', ['src', 'alt'])
+    .allow('*', ['class']);
 };
-const s = new Sanitizer(ugcLike);
+const s = Sanitizer.builder(ugcLike).build();
 
 /** No script element, no inline event handler, no javascript:/vbscript: URL survives. */
 function noDanger(out: string): boolean {
@@ -45,11 +42,12 @@ describe('Sanitizer — policy basics', () => {
 });
 
 describe('Sanitizer — inviolable baseline (holds even when allow-listed)', () => {
-  const permissive = new Sanitizer({
-    tags: new Set(['script', 'a', 'b', 'img']),
-    attrs: new Map<string, Set<string>>([['a', new Set(['href'])], ['b', new Set(['onclick'])], ['img', new Set(['src', 'onerror'])]]),
-    allowUnsafe: false
-  });
+  const permissive = Sanitizer.builder()
+    .allow('script')
+    .allow('a', ['href'])
+    .allow('b', ['onclick'])
+    .allow('img', ['src', 'onerror'])
+    .build();
   it('drops <script> even if allow-listed', () => {
     expect(permissive.sanitize('a<script>alert(1)</script>b')).toBe('ab');
   });

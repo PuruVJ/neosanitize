@@ -18,19 +18,15 @@
  *  3. Unsafe-baseline differential + builder allow/deny/preset semantics.
  */
 import { describe, it, expect } from 'vitest';
-import { Sanitizer, SanitizerBuilder, type Policy, type Removal } from '../../src/main/index';
+import { Sanitizer, SanitizerBuilder, type Preset, type Removal } from '../../src/main/index';
 
-const policy: Policy = {
-  tags: new Set(['p', 'a', 'b', 'i', 'em', 'strong', 'span', 'div', 'ul', 'ol', 'li', 'img',
-    'h1', 'h2', 'h3', 'code', 'pre', 'br', 'blockquote', 'table', 'tr', 'td', 'svg']),
-  attrs: new Map<string, Set<string>>([
-    ['a', new Set(['href', 'title'])],
-    ['img', new Set(['src', 'alt'])],
-    ['*', new Set(['class', 'style'])],
-  ]),
-  allowUnsafe: false,
-};
-const s = new Sanitizer(policy);
+const policy: Preset = (b) =>
+  b.allow(['p', 'a', 'b', 'i', 'em', 'strong', 'span', 'div', 'ul', 'ol', 'li', 'img',
+    'h1', 'h2', 'h3', 'code', 'pre', 'br', 'blockquote', 'table', 'tr', 'td', 'svg'])
+    .allow('a', ['href', 'title'])
+    .allow('img', ['src', 'alt'])
+    .allow('*', ['class', 'style']);
+const s = Sanitizer.builder(policy).build();
 
 const DANGER_TAGS = new Set(['script', 'iframe', 'object', 'embed', 'base']);
 /** Genuinely-dangerous constructs that a second sanitize of `out` would strip
@@ -138,13 +134,13 @@ describe('Sanitizer — seeded generative fuzz', () => {
 
 describe('Sanitizer — baseline differential + builder semantics', () => {
   it('sanitizeUnsafe keeps a javascript: URL that sanitize strips (baseline is the only diff)', () => {
-    const b = Sanitizer.builder({ tags: ['a'], attrs: { a: ['href'] } }).build();
+    const b = Sanitizer.builder().allow('a', ['href']).build();
     expect(b.sanitize('<a href="javascript:alert(1)">x</a>')).toBe('<a>x</a>');
     expect(b.sanitizeUnsafe('<a href="javascript:alert(1)">x</a>')).toContain('javascript:');
   });
 
   it('sanitizeUnsafe still enforces the allow-list (unsafe ≠ no policy)', () => {
-    const b = Sanitizer.builder({ tags: ['b'] }).build();
+    const b = Sanitizer.builder().allow('b').build();
     expect(b.sanitizeUnsafe('<b>ok</b><script>alert(1)</script>')).toBe('<b>ok</b>');
   });
 
@@ -153,9 +149,10 @@ describe('Sanitizer — baseline differential + builder semantics', () => {
     expect(b.sanitize('<a href="/x">y</a><b>z</b>')).toBe('<a href="/x">y</a>z');
   });
 
-  it('builder preset merge unions tags + attrs', () => {
-    const b = Sanitizer.builder({ tags: ['p'], attrs: { p: ['class'] } })
-      .preset({ tags: ['a'], attrs: { a: ['href'] } })
+  it('presets compose: applying one then refining unions tags + attrs', () => {
+    const b = Sanitizer.builder()
+      .allow('p', ['class'])
+      .preset((bb) => bb.allow('a', ['href']))
       .build();
     expect(b.sanitize('<p class="x"><a href="/y">z</a></p>')).toBe('<p class="x"><a href="/y">z</a></p>');
   });

@@ -15,7 +15,7 @@
  */
 export * from './core';
 
-import { SanitizerCore, type ParseAdapter, type Policy } from './core';
+import { SanitizerCore, type ParseAdapter, type SanitizerOptions, type Policy } from './core';
 import type { ElementNode, ParentNode, TreeNode, NS } from './core';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -43,8 +43,8 @@ export const domParserAdapter: ParseAdapter = (html) => {
  * `whatwgAdapter` to force the bundled parser, or `parse5Adapter`.
  */
 export class Sanitizer extends SanitizerCore {
-  constructor(policy?: Policy, parser: ParseAdapter | null = null) {
-    super(policy, domParserAdapter, parser);
+  constructor(policy?: Policy, opts: SanitizerOptions = {}) {
+    super(policy, domParserAdapter, opts);
   }
 }
 
