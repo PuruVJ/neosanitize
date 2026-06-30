@@ -787,7 +787,7 @@ export class SanitizerBuilder<T extends SanitizerCore = SanitizerCore> {
       tags: new Set(this._tags),
       attrs: new Map([...this._attrs].map(([t, s]) => [t, new Set(s)])),
       allowUnsafe: this._allowUnsafe
-    }, { parser: this._parser, matchers: this._matchers, attrHook: this._attrHook });
+    }, { parser: this._parser, matchers: [...this._matchers], attrHook: this._attrHook });
   }
 
   /** Add one exact tag with optional attributes (`'*'` tag = global attrs only). */

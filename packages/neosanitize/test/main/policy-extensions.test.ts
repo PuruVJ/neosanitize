@@ -46,6 +46,15 @@ describe('allow (pattern matching)', () => {
     expect(s.sanitize('<ui-w onclick="x()" href="javascript:1" data-ok="y">x</ui-w>'))
       .toBe('<ui-w data-ok="y">x</ui-w>');
   });
+
+  it('build() snapshots matchers: reusing the builder never mutates an earlier sanitizer', () => {
+    const builder = Sanitizer.builder().allow('p');
+    const first = builder.build();
+    builder.allow(/^ui-/, '*'); // mutate the builder AFTER first.build()
+    const second = builder.build();
+    expect(first.sanitize('<ui-x>hi</ui-x>')).toBe('hi');                 // first must NOT gain the pattern
+    expect(second.sanitize('<ui-x>hi</ui-x>')).toBe('<ui-x>hi</ui-x>');   // second has it
+  });
 });
 
 describe('Sanitizer.toExtended', () => {
