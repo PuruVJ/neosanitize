@@ -573,9 +573,12 @@ export class SanitizerCore {
       }
     }
     if (clean) {
-      const scheme = value.slice(0, colon).toLowerCase();
-      if (scheme === 'javascript' || scheme === 'vbscript') return true;
-      if (scheme === 'data') return SanitizerCore.dangerousDataUrl(value);
+      // Only javascript/vbscript/data are special — match by length + ASCII
+      // case-insensitive compare, no `slice().toLowerCase()` allocation per URL.
+      // (The clean scan above proved these bytes are ASCII [A-Za-z0-9+.-].)
+      if (colon === 10) { if (SanitizerCore.schemeEq(value, 'javascript')) return true; }
+      else if (colon === 8) { if (SanitizerCore.schemeEq(value, 'vbscript')) return true; }
+      else if (colon === 4 && SanitizerCore.schemeEq(value, 'data')) return SanitizerCore.dangerousDataUrl(value);
       return false; // http/https/mailto/tel/ftp/blob/... are fine
     }
 
@@ -605,6 +608,15 @@ export class SanitizerCore {
    * script/`on*` handlers. Since the URL check can't see the sink tag, and DOMPurify
    * likewise forbids SVG data URIs by default, we deny svg+xml across all URL attrs.
    * (An `<img src="data:image/svg+xml">` is inert, but blocking it is the safe call.) */
+  /** `value`'s first `lit.length` chars equal the lowercase ASCII literal `lit`,
+   * case-insensitively. Caller guarantees those bytes are ASCII. Avoids the
+   * per-URL `slice().toLowerCase()` allocation on the hot scheme-check path. */
+  private static schemeEq(value: string, lit: string): boolean {
+    for (let i = 0; i < lit.length; i++) {
+      if ((value.charCodeAt(i) | 0x20) !== lit.charCodeAt(i)) return false;
+    }
+    return true;
+  }
   private static dangerousDataUrl(value: string): boolean {
     const lower = value.slice(0, 20).toLowerCase();
     if (!lower.startsWith('data:image/')) return true; // non-image data: → dangerous

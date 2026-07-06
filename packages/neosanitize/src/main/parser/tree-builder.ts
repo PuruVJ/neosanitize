@@ -76,6 +76,16 @@ const TABLE_ROOT_CTX = new Set(['table', 'template', 'html']);
 const TABLE_BODY_CTX = new Set(['tbody', 'tfoot', 'thead', 'template', 'html']);
 const TABLE_ROW_CTX = new Set(['tr', 'template', 'html']);
 const CELL_OR_CAPTION_START = new Set(['caption', 'col', 'colgroup', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr']);
+// Stray-tag ignore/close lists used per-token by the table insertion modes. Hoisted
+// (a `[...].includes()` literal would allocate an array on each token).
+const INTABLE_IGNORED_END = new Set(['body', 'caption', 'col', 'colgroup', 'html', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr']);
+const INCAPTION_IGNORED_END = new Set(['body', 'col', 'colgroup', 'html', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr']);
+const INTABLEBODY_SCOPE_START = new Set(['caption', 'col', 'colgroup', 'tbody', 'tfoot', 'thead']);
+const INTABLEBODY_IGNORED_END = new Set(['body', 'caption', 'col', 'colgroup', 'html', 'td', 'th', 'tr']);
+const INROW_SCOPE_START = new Set(['caption', 'col', 'colgroup', 'tbody', 'tfoot', 'thead', 'tr']);
+const INROW_IGNORED_END = new Set(['body', 'caption', 'col', 'colgroup', 'html', 'td', 'th']);
+const INCELL_IGNORED_END = new Set(['body', 'caption', 'col', 'colgroup', 'html']);
+const INCELL_TABLE_END = new Set(['table', 'tbody', 'tfoot', 'thead', 'tr']);
 
 // --- Foreign content (SVG/MathML) adjustment tables (WHATWG 13.2.6) ----------
 // HTML start tags that "break out" of foreign content back to HTML parsing.
@@ -93,9 +103,14 @@ const FOREIGN_ATTR = new Map<string, string>(Object.entries({
   'xlink:actuate': 'xlink actuate', 'xlink:arcrole': 'xlink arcrole', 'xlink:href': 'xlink href', 'xlink:role': 'xlink role', 'xlink:show': 'xlink show', 'xlink:title': 'xlink title', 'xlink:type': 'xlink type', 'xml:lang': 'xml lang', 'xml:space': 'xml space', 'xmlns:xlink': 'xmlns xlink'
 }));
 
-const WS = new Set([' ', '\t', '\n', '\f']);
+// charCode scan (space/tab/LF/FF) — the `for...of` + `Set<string>.has` per char was a
+// hash lookup per whitespace character on a hot path. Input preprocessing already
+// normalized CR→LF, so 0x0d never appears here.
 function isAllWs(s: string): boolean {
-  for (const ch of s) if (!WS.has(ch)) return false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c !== 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0c) return false;
+  }
   return true;
 }
 
@@ -182,7 +197,7 @@ export class TreeBuilder {
   private insertAt(place: { parent: ParentNode; before: TreeNode | null }, node: TreeNode) {
     node.parent = place.parent;
     if (place.before) {
-      const idx = place.parent.children.indexOf(place.before);
+      const idx = place.parent.children.lastIndexOf(place.before); // foster ref (table) sits at the end → search from back (O(1))
       /* v8 ignore start -- defensive fallback for an impossible state (ref always found / current is an element / stack non-empty) */
       place.parent.children.splice(idx < 0 ? place.parent.children.length : idx, 0, node);
       /* v8 ignore stop */
@@ -234,7 +249,7 @@ export class TreeBuilder {
     }
     const place = this.appropriatePlace();
     const siblings = place.parent.children;
-    const refIdx = place.before ? siblings.indexOf(place.before) : siblings.length;
+    const refIdx = place.before ? siblings.lastIndexOf(place.before) : siblings.length;
     const prev = siblings[refIdx - 1];
     if (prev && prev.type === 'text') { prev.value += data; return; }
     const node: TextNode = { type: 'text', value: data, parent: place.parent };
@@ -424,7 +439,7 @@ export class TreeBuilder {
     if (t.selfClosing) this.popEl();
   }
   private foreignContent(t: Token) {
-    if (t.type === 'character') { this.insertText(t.data); if (!isAllWs(t.data)) this.framesetOk = false; return; }
+    if (t.type === 'character') { this.insertText(t.data); if (this.framesetOk && !isAllWs(t.data)) this.framesetOk = false; return; }
     if (t.type === 'comment') { this.insertComment(t.data); return; }
     /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
     if (t.type === 'doctype') return;
@@ -586,7 +601,9 @@ export class TreeBuilder {
     if (t.type === 'character') {
       this.reconstructFormatting();
       this.insertText(t.data);
-      if (!isAllWs(t.data)) this.framesetOk = false;
+      // Once framesetOk is false (almost immediately in real documents — the first
+      // non-whitespace text), skip the per-character-run whitespace scan entirely.
+      if (this.framesetOk && !isAllWs(t.data)) this.framesetOk = false;
       return;
     }
     if (t.type === 'comment') { this.insertComment(t.data); return; }
@@ -852,7 +869,7 @@ export class TreeBuilder {
         if (this.open[k].name === 'table') { lt = this.open[k]; lti = k; break; }
       }
       if (lt && lt.parent) {
-        const j = lt.parent.children.indexOf(lt);
+        const j = lt.parent.children.lastIndexOf(lt); // table sits at the end → search from back (O(1))
         /* v8 ignore start -- defensive fallback for an impossible state (ref always found / current is an element / stack non-empty) */
         lt.parent.children.splice(j < 0 ? lt.parent.children.length : j, 0, node);
         /* v8 ignore stop */
@@ -1154,7 +1171,7 @@ export class TreeBuilder {
       /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
       if (n === 'table') { if (!this.hasInTableScope('table')) return; this.popUntil('table'); this.resetInsertionMode(); return; }
       /* v8 ignore stop */
-      if (['body', 'caption', 'col', 'colgroup', 'html', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr'].includes(n)) return;
+      if (INTABLE_IGNORED_END.has(n)) return;
       return this.fosterInBody(t);
     }
     if (t.type === 'eof') return this.mInBody(t);
@@ -1189,7 +1206,7 @@ export class TreeBuilder {
       this.generateImpliedEndTags(); this.popUntil('caption'); this.clearAfeToMarker(); this.mode = 'inTable';
       return this.process(t);
     }
-    if (t.type === 'endTag' && ['body', 'col', 'colgroup', 'html', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr'].includes(t.name)) return;
+    if (t.type === 'endTag' && INCAPTION_IGNORED_END.has(t.name)) return;
     return this.mInBody(t);
   }
   private mInColumnGroup(t: Token) {
@@ -1207,7 +1224,7 @@ export class TreeBuilder {
   private mInTableBody(t: Token) {
     if (t.type === 'startTag' && t.name === 'tr') { this.clearStackTo(TABLE_BODY_CTX); this.insertElement(t); this.mode = 'inRow'; return; }
     if (t.type === 'startTag' && (t.name === 'td' || t.name === 'th')) { this.clearStackTo(TABLE_BODY_CTX); this.insertElement({ type: 'startTag', name: 'tr', attrs: [], selfClosing: false }); this.mode = 'inRow'; return this.process(t); }
-    if (t.type === 'startTag' && ['caption', 'col', 'colgroup', 'tbody', 'tfoot', 'thead'].includes(t.name)) {
+    if (t.type === 'startTag' && INTABLEBODY_SCOPE_START.has(t.name)) {
       /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
       if (!this.anyTableBodyInScope()) return;
       /* v8 ignore stop */
@@ -1223,7 +1240,7 @@ export class TreeBuilder {
       /* v8 ignore stop */
       this.clearStackTo(TABLE_BODY_CTX); this.popEl(); this.mode = 'inTable'; return this.process(t);
     }
-    if (t.type === 'endTag' && ['body', 'caption', 'col', 'colgroup', 'html', 'td', 'th', 'tr'].includes(t.name)) return;
+    if (t.type === 'endTag' && INTABLEBODY_IGNORED_END.has(t.name)) return;
     return this.mInTable(t);
   }
   private mInRow(t: Token) {
@@ -1231,7 +1248,7 @@ export class TreeBuilder {
     /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
     if (t.type === 'endTag' && t.name === 'tr') { if (!this.hasInTableScope('tr')) return; this.clearStackTo(TABLE_ROW_CTX); this.popEl(); this.mode = 'inTableBody'; return; }
     /* v8 ignore stop */
-    if ((t.type === 'startTag' && ['caption', 'col', 'colgroup', 'tbody', 'tfoot', 'thead', 'tr'].includes(t.name)) || (t.type === 'endTag' && t.name === 'table')) {
+    if ((t.type === 'startTag' && INROW_SCOPE_START.has(t.name)) || (t.type === 'endTag' && t.name === 'table')) {
       /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
       if (!this.hasInTableScope('tr')) return;
       /* v8 ignore stop */
@@ -1243,7 +1260,7 @@ export class TreeBuilder {
       /* v8 ignore stop */
       this.clearStackTo(TABLE_ROW_CTX); this.popEl(); this.mode = 'inTableBody'; return this.process(t);
     }
-    if (t.type === 'endTag' && ['body', 'caption', 'col', 'colgroup', 'html', 'td', 'th'].includes(t.name)) return;
+    if (t.type === 'endTag' && INROW_IGNORED_END.has(t.name)) return;
     return this.mInTable(t);
   }
   private mInCell(t: Token) {
@@ -1258,8 +1275,8 @@ export class TreeBuilder {
       /* v8 ignore stop */
       this.closeCell(); return this.process(t);
     }
-    if (t.type === 'endTag' && ['body', 'caption', 'col', 'colgroup', 'html'].includes(t.name)) return;
-    if (t.type === 'endTag' && ['table', 'tbody', 'tfoot', 'thead', 'tr'].includes(t.name)) {
+    if (t.type === 'endTag' && INCELL_IGNORED_END.has(t.name)) return;
+    if (t.type === 'endTag' && INCELL_TABLE_END.has(t.name)) {
       if (!this.hasInTableScope(t.name)) return;
       this.closeCell(); return this.process(t);
     }
