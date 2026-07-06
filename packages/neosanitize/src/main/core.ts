@@ -228,6 +228,9 @@ const RE_QUOTES_G = /['"]/g;
 const RE_TEXT_NEEDS = /[&<>\u00a0]/;
 const RE_ATTR_NEEDS = /[&"\u00a0]/;
 const RE_AMP_G = /&/g;
+// Bounds for the sanitizeStyle memo (see SanitizerCore.sanitizeStyle).
+const STYLE_MEMO_CAP = 512;
+const STYLE_MEMO_MAX_LEN = 256;
 const RE_LT_G = /</g;
 const RE_GT_G = />/g;
 const RE_QUOT_G = /"/g;
@@ -609,7 +612,25 @@ export class SanitizerCore {
     return lower.startsWith('data:image/svg');
   }
   // --- CSS safe-subset for the `style` attribute --------------------------
+  /** `sanitizeStyle` is a PURE function of the value string, and real documents
+   * repeat style attributes heavily (every `<td style="text-align:right">` in a
+   * table, every themed card in a feed). Memoize the result, bounded so a hostile
+   * stream of unique/oversized values can't grow it without limit. */
+  private static readonly styleMemo = new Map<string, string>();
   private static sanitizeStyle(value: string): string {
+    const memo = SanitizerCore.styleMemo;
+    const hit = memo.get(value);
+    if (hit !== undefined) return hit;
+    const result = SanitizerCore.computeSanitizeStyle(value);
+    // Don't retain attacker-sized values; cap the table size (FIFO-ish: clear when
+    // full — cheap, and the hot working set re-warms immediately).
+    if (value.length <= STYLE_MEMO_MAX_LEN) {
+      if (memo.size >= STYLE_MEMO_CAP) memo.clear();
+      memo.set(value, result);
+    }
+    return result;
+  }
+  private static computeSanitizeStyle(value: string): string {
     const out: string[] = [];
     for (const decl of SanitizerCore.splitDeclarations(value)) {
       const colon = decl.indexOf(':');
