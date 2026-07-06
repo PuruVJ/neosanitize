@@ -24,7 +24,10 @@ const ATTRS = {
   input: ['type', 'value', 'name', 'placeholder'],
   td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan'],
 };
-const san = Sanitizer.builder({ tags: TAGS, attrs: ATTRS }).build();
+const san = Sanitizer.builder((b) => {
+  b.allow(TAGS);
+  for (const [tag, list] of Object.entries(ATTRS)) b.allow(tag, list);
+}).build();
 
 const corpus = scenarios.map((s) => s.html);
 const ITERS = Number(process.env.ITERS ?? 400);
