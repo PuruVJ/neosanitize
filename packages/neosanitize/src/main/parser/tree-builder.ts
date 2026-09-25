@@ -52,7 +52,9 @@ export type ParentNode = ElementNode | DocumentNode;
 // Tags handled specially in "in body" / head. Subsets used below.
 const VOID = new Set(['area', 'base', 'basefont', 'bgsound', 'br', 'col', 'embed', 'frame', 'hr', 'img', 'input', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
 const RAWTEXT = new Set(['style', 'xmp', 'iframe', 'noembed', 'noframes']);
-const HEAD_TAGS = new Set(['base', 'basefont', 'bgsound', 'link', 'meta', 'title', 'noframes', 'style', 'script', 'template', 'head', 'noscript', 'command']);
+/** How far back `pushAfe`'s Noah's Ark scan looks (DoS bound, see pushAfe). */
+const NOAHS_ARK_SCAN_MAX = 128;
+const HEAD_TAGS = new Set(['base', 'basefont', 'bgsound', 'link', 'meta', 'title', 'noframes', 'style', 'script', 'template', 'head', 'noscript']);
 // Implied-end-tag set + the special category (subset that matters for the common path).
 const IMPLIED_END = new Set(['dd', 'dt', 'li', 'optgroup', 'option', 'p', 'rb', 'rp', 'rt', 'rtc']);
 const HEADINGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
@@ -103,6 +105,56 @@ const FOREIGN_ATTR = new Map<string, string>(Object.entries({
   'xlink:actuate': 'xlink actuate', 'xlink:arcrole': 'xlink arcrole', 'xlink:href': 'xlink href', 'xlink:role': 'xlink role', 'xlink:show': 'xlink show', 'xlink:title': 'xlink title', 'xlink:type': 'xlink type', 'xml:lang': 'xml lang', 'xml:space': 'xml space', 'xmlns:xlink': 'xmlns xlink'
 }));
 
+// "in body" start-tag branch per name (see inBodyStart). Built in the branch order
+// of inBodyStart with first-match-wins, so a name maps to exactly the branch the
+// original if-chain would have taken. Absent = 0 = generic.
+const IB_START_CAT: Map<string, number> = /*#__PURE__*/ (() => {
+  const m = new Map<string, number>();
+  const add = (names: Iterable<string>, cat: number) => { for (const x of names) if (!m.has(x)) m.set(x, cat); };
+  add(['html'], 1);
+  add([...HEAD_TAGS].filter((x) => x !== 'head' && x !== 'noscript'), 2);
+  add(['body'], 3);
+  add(['frameset'], 4);
+  add(START_BLOCK, 5);
+  add(HEADINGS, 6);
+  add(['li', 'dd', 'dt'], 7);
+  add(FORMATTING, 8);
+  add(['hr'], 9);
+  add(['param', 'source', 'track'], 10);
+  add(['form'], 11);
+  add(['br', ...VOID], 12);
+  add(RAWTEXT, 13);
+  add(['textarea'], 14);
+  add(['plaintext'], 15);
+  add(['button'], 16);
+  add(['table'], 17);
+  add(['select'], 18);
+  add(['optgroup', 'option'], 19);
+  add(['caption', 'col', 'colgroup', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'frame', 'head'], 20);
+  add(['image'], 21);
+  add(['rb', 'rtc'], 22);
+  add(['rp', 'rt'], 23);
+  add(['svg'], 24);
+  add(['math'], 25);
+  add(['applet', 'marquee', 'object'], 26);
+  return m;
+})();
+
+/** Index of `x` in `arr`, where `x` occurs at most once (tree nodes in a children
+ * array, elements on the open stack / active-formatting list). Checks the last 16
+ * slots back-to-front first (where the parser's lookups almost always hit), then
+ * falls back to indexOf for the rest: V8's indexOf is a SIMD scan (~0.15 ns/elem)
+ * while Array.prototype.lastIndexOf is a generic builtin (~1 ns/elem), so a plain
+ * lastIndexOf made full "absent" scans ~7x slower on deep stacks. */
+function lastIdx<T>(arr: readonly T[], x: T): number {
+  const n = arr.length, stop = n > 16 ? n - 16 : 0;
+  for (let i = n - 1; i >= stop; i--) if (arr[i] === x) return i;
+  return stop === 0 ? -1 : arr.indexOf(x);
+}
+
+/** Open-stack depth above which scope scans consult the lazy name counts. */
+const DEEP_STACK = 128;
+
 // charCode scan (space/tab/LF/FF) — the `for...of` + `Set<string>.has` per char was a
 // hash lookup per whitespace character on a hot path. Input preprocessing already
 // normalized CR→LF, so 0x0d never appears here.
@@ -112,6 +164,11 @@ function isAllWs(s: string): boolean {
     if (c !== 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0c) return false;
   }
   return true;
+}
+
+/** Elements whose presence on the open stack blocks streaming (see streamBlockers). */
+function isStreamBlocker(name: string): boolean {
+  return name === 'table' || name === 'template' || name === 'form';
 }
 
 export class TreeBuilder {
@@ -137,10 +194,61 @@ export class TreeBuilder {
    * a second <form> while this is set is ignored. */
   private formElement: ElementNode | null = null;
   private pendingTableText = '';
+  /** The <body> element once inserted (for the streaming hook). */
+  private bodyEl: ElementNode | null = null;
+  /**
+   * Streaming hook for the sanitizer (null = off, the default). Called after a pop
+   * from the open stack with the popped element, when that element is
+   * `streamWatch` or every `streamEvery` pops (the hook call itself is the cost on
+   * the hot pop path, so it is gated here). The callee may serialize and drop
+   * content these rules prove FINAL:
+   *
+   *  - A popped (closed) element's whole subtree is final: nothing ever inserts into
+   *    a closed element again (only open-stack elements, the adoption agency's
+   *    furthest block / formatting element, and foster-parent tables are targets).
+   *  - While `streamSafe()` holds, the children of an open element that is not a
+   *    formatting element (`streamEnterable`) are final except its last child when
+   *    that is still open, or is text (later text merges into it): new nodes only go
+   *    to the END of an open element. The adoption agency only rearranges the
+   *    subtree of an open formatting element, which is never entered.
+   */
+  onPop: ((popped: ElementNode) => void) | null = null;
+  /** See onPop. */
+  streamWatch: ElementNode | null = null;
+  /** See onPop. */
+  streamEvery = 1;
+  private popCount = 0;
+  /** Count of open <table>, <template> and <form> elements. A table can have content
+   * foster-parented in FRONT of it, a template redirects insertion, and `</form>` can
+   * remove a form from the middle of the stack, so any of them open blocks streaming. */
+  private streamBlockers = 0;
   private pendingTableNonWs = false;
 
   constructor(html: string) {
     this.tk = new Tokenizer(html, { state: 'data' });
+  }
+
+  /** The stack of open elements (read-only view for the streaming hook). */
+  get openElements(): readonly ElementNode[] {
+    return this.open;
+  }
+  /** The <body> element, once inserted. */
+  get body(): ElementNode | null {
+    return this.bodyEl;
+  }
+  /**
+   * True when every future tree change to an entered (non-formatting) open element
+   * is an append at its end (see `onPop`): body can no longer be replaced by
+   * <frameset>, and no table (content is foster-parented in FRONT of it), template
+   * (redirects insertion) or form (`</form>` can remove it mid-stack) is open.
+   */
+  streamSafe(): boolean {
+    return !this.framesetOk && this.streamBlockers === 0;
+  }
+  /** Whether streaming may enter `el` as a container (see `onPop`): not an HTML
+   * formatting element, whose subtree the adoption agency can rearrange later. */
+  streamEnterable(el: ElementNode): boolean {
+    return el.namespace !== 'html' || !FORMATTING.has(el.name);
   }
 
   /** Parse to completion and return the document tree. */
@@ -172,7 +280,8 @@ export class TreeBuilder {
   }
   private append(parent: ParentNode, node: TreeNode) {
     node.parent = parent;
-    parent.children.push(node);
+    const k = parent.children;
+    if (k.length === 0) parent.children = [node]; else k.push(node);
   }
   /** The "appropriate place for inserting a node" — implements foster parenting:
    * when enabled and the current node is a table context, content is inserted
@@ -197,7 +306,7 @@ export class TreeBuilder {
   private insertAt(place: { parent: ParentNode; before: TreeNode | null }, node: TreeNode) {
     node.parent = place.parent;
     if (place.before) {
-      const idx = place.parent.children.lastIndexOf(place.before); // foster ref (table) sits at the end → search from back (O(1))
+      const idx = lastIdx(place.parent.children, place.before); // foster ref (table) sits at the end → search from back (O(1))
       /* v8 ignore start -- defensive fallback for an impossible state (ref always found / current is an element / stack non-empty) */
       place.parent.children.splice(idx < 0 ? place.parent.children.length : idx, 0, node);
       /* v8 ignore stop */
@@ -214,8 +323,8 @@ export class TreeBuilder {
     // inserts) the insertion point is just the current node, appended at the end —
     // no `appropriatePlace` place-object and no `insertAt` indirection.
     if (this.fosterParenting) this.insertAt(this.appropriatePlace(), el);
-    else { const parent = this.current(); el.parent = parent; parent.children.push(el); }
-    this.open.push(el);
+    else { const parent = this.current(); el.parent = parent; const k = parent.children; if (k.length === 0) parent.children = [el]; else k.push(el); }
+    this.pushEl(el);
     // The ONLY site that pushes an HTML <p> onto the open stack (insertForeign and
     // reconstructFormatting never create one). Keeps pOpen (see hasInButtonScope).
     if (ns === 'html' && el.name === 'p') this.pOpen++;
@@ -227,29 +336,89 @@ export class TreeBuilder {
    * is open, instead of scanning the whole stack — which was O(depth²) on deeply
    * nested block input (a real quadratic-DoS surface). INVARIANT: only ever
    * *over*-counts on a missed decrement, never under-counts (increment is the single
-   * site above; every removal goes through `popEl`, and the sole p-capable splice is
-   * guarded in `adoptionAgency`). An over-count is safe: it just falls back to the
+   * site above; every removal goes through `popEl` or `removeOpenAt`). An over-count is safe: it just falls back to the
    * exact scan below. */
   private pOpen = 0;
   /** Pop the open-stack top, keeping `pOpen` exact. All `this.open.pop()` sites route
    * here so a popped `<p>` decrements the counter. */
   private popEl(): ElementNode | undefined {
     const el = this.open.pop();
-    if (el !== undefined && el.name === 'p' && el.namespace === 'html') this.pOpen--;
+    if (el !== undefined) {
+      if (el.name === 'p' && el.namespace === 'html') this.pOpen--;
+      const nc = this.nameCount;
+      if (nc !== null) nc.set(el.name, nc.get(el.name)! - 1);
+      if (isStreamBlocker(el.name)) this.streamBlockers--;
+      if (this.onPop !== null && (el === this.streamWatch || ++this.popCount >= this.streamEvery)) {
+        this.popCount = 0;
+        this.onPop(el);
+      }
+    }
     return el;
+  }
+  /** Open-stack occupancy by tag name, built LAZILY the first time a scope scan
+   * runs on a deep stack (> DEEP_STACK) and maintained from then on. Lets the "no
+   * element with that name is open at all" case of the stray-end-tag scans
+   * (inBodyEndGeneric, hasInScope, hasInTableScope) answer in O(1): without it
+   * `<span>`×N + `</x>`×N rescans the whole stack per end tag, O(N²) (a 200 KB
+   * payload took >1 s). Normal (shallow) documents never build it and pay one null
+   * check per push/pop (a Map update on every push/pop cost ~12% throughput).
+   * Invariant as pOpen: once built, EVERY push goes through pushEl/countUp (never
+   * under-counts); popEl / removeOpenAt decrement exactly. */
+  private nameCount: Map<string, number> | null = null;
+  /** Remove open[i] (a mid-stack removal), keeping pOpen / nameCount exact. */
+  private removeOpenAt(i: number) {
+    const el = this.open[i];
+    this.open.splice(i, 1);
+    if (isStreamBlocker(el.name)) this.streamBlockers--;
+    if (el.name === 'p' && el.namespace === 'html') this.pOpen--;
+    const nc = this.nameCount;
+    if (nc !== null) nc.set(el.name, nc.get(el.name)! - 1);
+  }
+  private countUp(name: string) {
+    const nc = this.nameCount;
+    if (nc !== null) nc.set(name, (nc.get(name) ?? 0) + 1);
+  }
+  private pushEl(el: ElementNode) {
+    this.open.push(el);
+    if (isStreamBlocker(el.name)) this.streamBlockers++;
+    if (this.nameCount !== null) this.countUp(el.name);
+  }
+  /** Index of `el` on the open stack, or -1. On a deep stack an element whose NAME
+   * is not open at all is answered from the counts without scanning (e.g. an
+   * already-closed <a> still in the active-formatting list — `<a><p></a>` repeated
+   * under deep nesting was O(depth) per tag). */
+  private openIdx(el: ElementNode): number {
+    const open = this.open, n = open.length, stop = n > 16 ? n - 16 : 0;
+    for (let i = n - 1; i >= stop; i--) if (open[i] === el) return i; // usual hit: near the top
+    if (stop === 0 || !this.mayBeOpen(el.name)) return -1;
+    return open.indexOf(el);
+  }
+  /** False only when NO open element is named `name` (so a name scan must fail). */
+  private mayBeOpen(name: string): boolean {
+    if (this.open.length <= DEEP_STACK) return true; // shallow: just scan
+    let nc = this.nameCount;
+    if (nc === null) {
+      nc = this.nameCount = new Map();
+      for (let i = 0; i < this.open.length; i++) { const k = this.open[i].name; nc.set(k, (nc.get(k) ?? 0) + 1); }
+    }
+    return nc.get(name)! > 0;
   }
   private insertText(data: string) {
     if (!this.fosterParenting) {
       const parent = this.current();
       const siblings = parent.children;
-      const prev = siblings[siblings.length - 1];
-      if (prev !== undefined && prev.type === 'text') { prev.value += data; return; }
+      const n = siblings.length;
+      // Length check BEFORE indexing: `siblings[-1]` on an empty array is an
+      // out-of-bounds keyed load that V8 serves via the slow generic path.
+      if (n === 0) { parent.children = [{ type: 'text', value: data, parent }]; return; }
+      const prev = siblings[n - 1];
+      if (prev.type === 'text') { prev.value += data; return; }
       siblings.push({ type: 'text', value: data, parent });
       return;
     }
     const place = this.appropriatePlace();
     const siblings = place.parent.children;
-    const refIdx = place.before ? siblings.lastIndexOf(place.before) : siblings.length;
+    const refIdx = place.before ? lastIdx(siblings, place.before) : siblings.length;
     const prev = siblings[refIdx - 1];
     if (prev && prev.type === 'text') { prev.value += data; return; }
     const node: TextNode = { type: 'text', value: data, parent: place.parent };
@@ -275,6 +444,7 @@ export class TreeBuilder {
     return el.name === 'foreignObject' || el.name === 'desc' || el.name === 'title';
   }
   private hasInScope(target: string): boolean {
+    if (!this.mayBeOpen(target)) return false; // none open (see nameCount)
     for (let i = this.open.length - 1; i >= 0; i--) {
       const el = this.open[i];
       if (el.name === target && el.namespace === 'html') return true;
@@ -315,10 +485,17 @@ export class TreeBuilder {
   }
   /** Add a formatting element to the active-formatting list, applying the spec's
    * "Noah's Ark" clause: if three elements with the same tag name, namespace and
-   * attributes already follow the last marker, drop the EARLIEST such one first. */
+   * attributes already follow the last marker, drop the EARLIEST such one first.
+   *
+   * DoS bound (deliberate spec deviation): the scan looks back at most
+   * NOAHS_ARK_SCAN_MAX entries. Unbounded, N distinct unclosed formatting elements
+   * (`<b id=1><b id=2>…`) cost O(N²): ~2 s for 250 KB. Real documents never have
+   * that many open formatting elements; past the bound only which duplicate
+   * formatting clones survive can differ, never what the sanitizer lets through. */
   private pushAfe(el: ElementNode) {
     let count = 0, earliest = -1;
-    for (let i = this.afe.length - 1; i >= 0; i--) {
+    const stop = Math.max(0, this.afe.length - NOAHS_ARK_SCAN_MAX);
+    for (let i = this.afe.length - 1; i >= stop; i--) {
       const e = this.afe[i];
       if (e === 'marker') break;
       if (e.name === el.name && e.namespace === el.namespace && sameAttrs(e.attrs, el.attrs)) { count++; earliest = i; }
@@ -329,18 +506,21 @@ export class TreeBuilder {
   private reconstructFormatting() {
     if (this.afe.length === 0) return;
     let last = this.afe[this.afe.length - 1];
-    if (last === 'marker' || this.open.includes(last as ElementNode)) return;
+    // lastIdx, not includes: active formatting elements that are still open sit near
+    // the TOP of the open stack, so a back-to-front search hits in O(1) instead of
+    // scanning the whole (possibly thousands-deep) stack from the bottom.
+    if (last === 'marker' || this.openIdx(last as ElementNode) !== -1) return;
     let i = this.afe.length - 1;
     while (i > 0) {
       const e = this.afe[i - 1];
-      if (e === 'marker' || this.open.includes(e as ElementNode)) break;
+      if (e === 'marker' || this.openIdx(e as ElementNode) !== -1) break;
       i--;
     }
     for (; i < this.afe.length; i++) {
       const entry = this.afe[i] as ElementNode;
       const el: ElementNode = { type: 'element', name: entry.name, namespace: 'html', attrs: entry.attrs.slice(), children: [], parent: null };
       this.append(this.current(), el);
-      this.open.push(el);
+      this.pushEl(el);
       this.afe[i] = el;
     }
     void last;
@@ -435,7 +615,7 @@ export class TreeBuilder {
     // Honour foster parenting (e.g. <table><svg> → svg goes BEFORE the table),
     // matching insertElement, instead of always appending to the current node.
     this.insertAt(this.appropriatePlace(), el);
-    this.open.push(el);
+    this.pushEl(el);
     if (t.selfClosing) this.popEl();
   }
   private foreignContent(t: Token) {
@@ -460,9 +640,14 @@ export class TreeBuilder {
       return;
     }
     if (t.type === 'endTag') {
+      // Stack names are lowercase except the SVG camelCase fixups, so only t.name or
+      // its SVG_TAG_NAMES form can match; if neither is open, the loop below could
+      // only end at the first HTML element (the <html> root at worst) -> dispatch.
+      const camel = SVG_TAG_NAMES.get(t.name);
+      if (!this.mayBeOpen(t.name) && (camel === undefined || !this.mayBeOpen(camel))) { this.dispatchMode(t); return; }
       for (let i = this.open.length - 1; i >= 0; i--) {
         const node = this.open[i];
-        if (node.name.toLowerCase() === t.name) { while (this.open.length > i) this.popEl(); return; }
+        if (node.name === t.name || (node.name.length === t.name.length && node.name.toLowerCase() === t.name)) { while (this.open.length > i) this.popEl(); return; }
         if (node.namespace === 'html') { this.dispatchMode(t); return; }
       }
     }
@@ -587,12 +772,12 @@ export class TreeBuilder {
     if (t.type === 'doctype') return;
     /* v8 ignore stop */
     if (t.type === 'startTag' && t.name === 'html') return this.mInBody(t);
-    if (t.type === 'startTag' && t.name === 'body') { this.insertElement(t); this.framesetOk = false; this.mode = 'inBody'; return; }
+    if (t.type === 'startTag' && t.name === 'body') { this.bodyEl = this.insertElement(t); this.framesetOk = false; this.mode = 'inBody'; return; }
     if (t.type === 'startTag' && t.name === 'frameset') { this.insertElement(t); this.mode = 'inFrameset'; return; }
-    if (t.type === 'startTag' && HEAD_TAGS.has(t.name)) { if (this.head) this.open.push(this.head); this.mInHead(t); if (this.head) { const idx = this.open.lastIndexOf(this.head); if (idx >= 0) this.open.splice(idx, 1); } return; }
+    if (t.type === 'startTag' && HEAD_TAGS.has(t.name)) { if (this.head) this.pushEl(this.head); this.mInHead(t); if (this.head) { const idx = this.openIdx(this.head); if (idx >= 0) this.removeOpenAt(idx); } return; }
     // Stray end tags (other than body/html/br) are ignored — must not force <body>.
     if (t.type === 'endTag') { if (t.name === 'template') return this.mInHead(t); if (t.name !== 'body' && t.name !== 'html' && t.name !== 'br') return; }
-    this.insertElement({ type: 'startTag', name: 'body', attrs: [], selfClosing: false });
+    this.bodyEl = this.insertElement({ type: 'startTag', name: 'body', attrs: [], selfClosing: false });
     this.mode = 'inBody';
     this.process(t);
   }
@@ -614,16 +799,22 @@ export class TreeBuilder {
 
   private inBodyStart(t: TagToken) {
     const n = t.name;
-    if (n === 'html') {
+    // ONE map lookup classifies the tag into the branch it would hit first in the
+    // spec-ordered chain below (built in that same order, first match wins), instead
+    // of walking up to ~10 Set lookups + ~40 string compares per start tag.
+    // Unlisted tags (span, custom elements, …) are category 0 = the generic branch.
+    const cat = IB_START_CAT.get(n) ?? 0;
+    if (cat === 0) { this.reconstructFormatting(); this.insertElement(t); return; }
+    if (cat === 1) {
       // merge attributes onto the existing html element
       const html = this.open[0];
       if (html) for (const [k, v] of t.attrs) if (!html.attrs.some((a) => a[0] === k)) html.attrs.push([k, v]);
       return;
     }
     // noscript in body (scripting disabled) is a normal flow element, not a head tag.
-    if (HEAD_TAGS.has(n) && n !== 'head' && n !== 'noscript') { this.mInHead(t); return; }
-    if (n === 'body') return; // (attribute-merge onto existing body omitted; irrelevant to sanitized output)
-    if (n === 'frameset') {
+    if (cat === 2) { this.mInHead(t); return; }
+    if (cat === 3) return; // (attribute-merge onto existing body omitted; irrelevant to sanitized output)
+    if (cat === 4) {
       // Swap the body for a frameset (only while still frameset-ok and a body is open).
       const body = this.open[1];
       if (!this.framesetOk || !body || body.name !== 'body' || body.namespace !== 'html') return;
@@ -633,13 +824,13 @@ export class TreeBuilder {
       this.mode = 'inFrameset';
       return;
     }
-    if (START_BLOCK.has(n)) {
+    if (cat === 5) {
       this.closePElement();
       this.insertElement(t);
       if (n === 'pre' || n === 'listing') { this.ignoreNextLF = true; this.framesetOk = false; }
       return;
     }
-    if (HEADINGS.has(n)) {
+    if (cat === 6) {
       this.closePElement();
       /* v8 ignore start -- defensive fallback for an impossible state (ref always found / current is an element / stack non-empty) */
       if (HEADINGS.has(this.current().type === 'element' ? (this.current() as ElementNode).name : '')) this.popEl();
@@ -647,7 +838,7 @@ export class TreeBuilder {
       this.insertElement(t);
       return;
     }
-    if (n === 'li' || n === 'dd' || n === 'dt') {
+    if (cat === 7) {
       this.framesetOk = false;
       // close previous li/dd/dt in scope (simplified)
       for (let i = this.open.length - 1; i >= 0; i--) {
@@ -663,7 +854,7 @@ export class TreeBuilder {
       this.insertElement(t);
       return;
     }
-    if (FORMATTING.has(n)) {
+    if (cat === 8) {
       if (n === 'a') {
         // an existing <a> in the active formatting list is adopted out first
         for (let i = this.afe.length - 1; i >= 0; i--) {
@@ -680,28 +871,28 @@ export class TreeBuilder {
       this.pushAfe(el);
       return;
     }
-    if (n === 'hr') {
+    if (cat === 9) {
       this.closePElement();
       this.insertElement(t);
       this.popEl();
       this.framesetOk = false;
       return;
     }
-    if (n === 'param' || n === 'source' || n === 'track') {
+    if (cat === 10) {
       // void, but (unlike img/br/embed/…) do NOT clear framesetOk or reconstruct.
       this.insertElement(t);
       this.popEl();
       return;
     }
-    if (n === 'form') {
-      const hasTemplate = this.open.some((e) => e.name === 'template');
+    if (cat === 11) {
+      const hasTemplate = this.mayBeOpen('template') && this.open.some((e) => e.name === 'template');
       if (this.formElement && !hasTemplate) return; // one form per document
       if (this.hasInButtonScope('p')) this.closePElement();
       const f = this.insertElement(t);
       if (!hasTemplate) this.formElement = f;
       return;
     }
-    if (n === 'br' || VOID.has(n)) {
+    if (cat === 12) {
       this.reconstructFormatting();
       this.insertElement(t);
       this.popEl();
@@ -710,7 +901,7 @@ export class TreeBuilder {
       else this.framesetOk = false;
       return;
     }
-    if (RAWTEXT.has(n)) {
+    if (cat === 13) {
       if (n === 'xmp') { this.closePElement(); this.reconstructFormatting(); }
       if (n === 'xmp' || n === 'iframe') this.framesetOk = false;
       this.insertElement(t);
@@ -718,7 +909,7 @@ export class TreeBuilder {
       this.originalMode = this.mode; this.mode = 'text';
       return;
     }
-    if (n === 'textarea') {
+    if (cat === 14) {
       this.insertElement(t);
       this.ignoreNextLF = true;
       this.tk.setContentState('rcdata'); this.tk.setLastStartTag(n);
@@ -726,15 +917,15 @@ export class TreeBuilder {
       this.originalMode = this.mode; this.mode = 'text';
       return;
     }
-    if (n === 'plaintext') { this.closePElement(); this.insertElement(t); this.tk.setContentState('plaintext'); return; }
-    if (n === 'button') {
+    if (cat === 15) { this.closePElement(); this.insertElement(t); this.tk.setContentState('plaintext'); return; }
+    if (cat === 16) {
       if (this.hasInScope('button')) { this.generateImpliedEndTags(); this.popUntil('button'); }
       this.reconstructFormatting();
       this.insertElement(t);
       this.framesetOk = false;
       return;
     }
-    if (n === 'table') {
+    if (cat === 17) {
       // (quirks-mode p-closing nuance omitted)
       this.closePElement();
       this.insertElement(t);
@@ -742,7 +933,7 @@ export class TreeBuilder {
       this.mode = 'inTable';
       return;
     }
-    if (n === 'select') {
+    if (cat === 18) {
       this.reconstructFormatting();
       this.insertElement(t);
       this.framesetOk = false;
@@ -752,30 +943,28 @@ export class TreeBuilder {
         ? 'inSelectInTable' : 'inSelect';
       return;
     }
-    if (n === 'optgroup' || n === 'option') {
+    if (cat === 19) {
       if (this.current().type === 'element' && (this.current() as ElementNode).name === 'option') this.popEl();
       this.reconstructFormatting();
       this.insertElement(t);
       return;
     }
-    if (n === 'caption' || n === 'col' || n === 'colgroup' || n === 'tbody' || n === 'td' || n === 'tfoot' || n === 'th' || n === 'thead' || n === 'tr' || n === 'frame' || n === 'head') {
+    if (cat === 20) {
       return; // ignored as a start tag in body
     }
-    if (n === 'image') { this.insertElement({ ...t, name: 'img' }); this.popEl(); this.framesetOk = false; return; }
-    if (n === 'rb' || n === 'rtc') { if (this.hasInScope('ruby')) this.generateImpliedEndTags(); this.insertElement(t); return; }
-    if (n === 'rp' || n === 'rt') { if (this.hasInScope('ruby')) this.generateImpliedEndTags('rtc'); this.insertElement(t); return; }
-    if (n === 'svg') { this.reconstructFormatting(); this.insertForeign(t, 'svg'); return; }
-    if (n === 'math') { this.reconstructFormatting(); this.insertForeign(t, 'mathml'); return; }
-    if (n === 'applet' || n === 'marquee' || n === 'object') {
+    if (cat === 21) { this.insertElement({ ...t, name: 'img' }); this.popEl(); this.framesetOk = false; return; }
+    if (cat === 22) { if (this.hasInScope('ruby')) this.generateImpliedEndTags(); this.insertElement(t); return; }
+    if (cat === 23) { if (this.hasInScope('ruby')) this.generateImpliedEndTags('rtc'); this.insertElement(t); return; }
+    if (cat === 24) { this.reconstructFormatting(); this.insertForeign(t, 'svg'); return; }
+    if (cat === 25) { this.reconstructFormatting(); this.insertForeign(t, 'mathml'); return; }
+    if (cat === 26) {
       this.reconstructFormatting();
       this.insertElement(t);
       this.afe.push('marker');
       this.framesetOk = false;
       return;
     }
-    // generic
-    this.reconstructFormatting();
-    this.insertElement(t);
+    // (generic, cat 0, is handled at the top)
   }
 
   private inBodyEnd(t: TagToken) {
@@ -793,6 +982,7 @@ export class TreeBuilder {
     }
     if (HEADINGS.has(n)) {
       // ANY heading end tag closes ANY open heading (</h1> closes an <h3>, etc.).
+      if (!this.mayBeOpen('h1') && !this.mayBeOpen('h2') && !this.mayBeOpen('h3') && !this.mayBeOpen('h4') && !this.mayBeOpen('h5') && !this.mayBeOpen('h6')) return;
       let inScope = false;
       for (let i = this.open.length - 1; i >= 0; i--) {
         const nm = this.open[i].name;
@@ -805,7 +995,7 @@ export class TreeBuilder {
       return;
     }
     if (n === 'form') {
-      if (this.open.some((e) => e.name === 'template')) {
+      if (this.mayBeOpen('template') && this.open.some((e) => e.name === 'template')) {
         if (!this.hasInScope('form')) return;
         this.generateImpliedEndTags();
         this.popUntil('form');
@@ -816,7 +1006,7 @@ export class TreeBuilder {
       if (!node || !this.hasElementInScope(node)) return;
       this.generateImpliedEndTags();
       const i = this.open.indexOf(node);
-      if (i >= 0) this.open.splice(i, 1); // remove node (not necessarily the current node)
+      if (i >= 0) this.removeOpenAt(i); // remove node (not necessarily the current node)
       return;
     }
     if (CLOSE_BLOCK.has(n)) {
@@ -838,6 +1028,8 @@ export class TreeBuilder {
   }
 
   private inBodyEndGeneric(n: string) {
+    // No open element has this name ⇒ the scan below can only end in "ignore".
+    if (!this.mayBeOpen(n)) return;
     for (let i = this.open.length - 1; i >= 0; i--) {
       const el = this.open[i];
       if (el.name === n) {
@@ -855,7 +1047,7 @@ export class TreeBuilder {
   private removeFromParent(node: TreeNode) {
     const p = node.parent;
     if (p) {
-      const i = p.children.indexOf(node);
+      const i = lastIdx(p.children, node); // adoption moves the LAST child → O(1), not O(siblings)
       if (i >= 0) p.children.splice(i, 1);
       node.parent = null;
     }
@@ -869,7 +1061,7 @@ export class TreeBuilder {
         if (this.open[k].name === 'table') { lt = this.open[k]; lti = k; break; }
       }
       if (lt && lt.parent) {
-        const j = lt.parent.children.lastIndexOf(lt); // table sits at the end → search from back (O(1))
+        const j = lastIdx(lt.parent.children, lt); // table sits at the end → search from back (O(1))
         /* v8 ignore start -- defensive fallback for an impossible state (ref always found / current is an element / stack non-empty) */
         lt.parent.children.splice(j < 0 ? lt.parent.children.length : j, 0, node);
         /* v8 ignore stop */
@@ -900,9 +1092,13 @@ export class TreeBuilder {
    * (Foster parenting for the table case is a later refinement — marked below.)
    */
   private adoptionAgency(tag: string) {
+    // (All open/afe lookups below use lastIdx: each element occurs at most once
+    // in either list, so the index is identical, but the formatting element and
+    // its furthest block sit near the TOP of the open stack / END of the afe list,
+    // so a back-to-front search is O(1) typical instead of O(depth).)
     const cur = this.open[this.open.length - 1];
     /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
-    if (cur && cur.name === tag && this.afe.indexOf(cur) === -1) { this.popEl(); return; }
+    if (cur && cur.name === tag && lastIdx(this.afe, cur) === -1) { this.popEl(); return; }
     /* v8 ignore stop */
 
     for (let outer = 0; outer < 8; outer++) {
@@ -915,7 +1111,7 @@ export class TreeBuilder {
       }
       if (fmtIdx === -1) { this.inBodyEndGeneric(tag); return; } // "any other end tag"
       const fmtEl = this.afe[fmtIdx] as ElementNode;
-      const openIdx = this.open.indexOf(fmtEl);
+      const openIdx = this.openIdx(fmtEl);
       if (openIdx === -1) { this.afe.splice(fmtIdx, 1); return; }
       if (!this.hasElementInScope(fmtEl)) return;
 
@@ -943,12 +1139,10 @@ export class TreeBuilder {
         /* v8 ignore stop */
         let node = this.open[nodeIdx];
         if (node === fmtEl) break;
-        let afeIdx = this.afe.indexOf(node);
+        let afeIdx = lastIdx(this.afe, node);
         if (inner > 3 && afeIdx !== -1) { this.afe.splice(afeIdx, 1); afeIdx = -1; }
         if (afeIdx === -1) {
-          // The one splice that can remove an HTML <p> from the open stack — keep pOpen exact.
-          if (node.name === 'p' && node.namespace === 'html') this.pOpen--;
-          this.open.splice(nodeIdx, 1);
+          this.removeOpenAt(nodeIdx); // mid-stack removal: keeps pOpen / nameCount exact
           continue;
         }
         const clone = this.cloneElement(node);
@@ -971,15 +1165,15 @@ export class TreeBuilder {
       furthestBlock.children = [];
       this.append(furthestBlock, fmtClone);
 
-      const fAfe = this.afe.indexOf(fmtEl);
+      const fAfe = lastIdx(this.afe, fmtEl);
       if (fAfe !== -1) { this.afe.splice(fAfe, 1); if (fAfe < bookmark) bookmark--; }
       bookmark = Math.max(0, Math.min(bookmark, this.afe.length));
       this.afe.splice(bookmark, 0, fmtClone);
 
-      const fOpen = this.open.indexOf(fmtEl);
-      if (fOpen !== -1) this.open.splice(fOpen, 1);
-      const fbOpen = this.open.indexOf(furthestBlock);
-      this.open.splice(fbOpen + 1, 0, fmtClone);
+      const fOpen = this.openIdx(fmtEl);
+      if (fOpen !== -1) this.removeOpenAt(fOpen);
+      const fbOpen = this.openIdx(furthestBlock);
+      this.open.splice(fbOpen + 1, 0, fmtClone); this.countUp(fmtClone.name);
     }
   }
 
@@ -1087,6 +1281,7 @@ export class TreeBuilder {
     while (this.afe.length) { if (this.afe.pop() === 'marker') break; }
   }
   private hasInTableScope(target: string): boolean {
+    if (!this.mayBeOpen(target)) return false; // none open (see nameCount)
     for (let i = this.open.length - 1; i >= 0; i--) {
       const n = this.open[i].name;
       if (n === target) return true;

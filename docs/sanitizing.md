@@ -123,7 +123,7 @@ const { html, removed } = s.sanitizeWithReport('<a href=javascript:alert(1) oncl
 
 ## The inviolable safe baseline {#safe-baseline}
 
-Even if your allow-list permits them, the baseline **always** strips `<script>`, `on*` event handlers, and `javascript:` / `vbscript:` / non-image `data:` URLs, mirroring the browser's native `setHTML()`. The only escape hatch is explicit and named to make that obvious:
+Even if your allow-list permits them, the baseline **always** strips `<script>`, `on*` event handlers, `javascript:` / `vbscript:` / non-image `data:` URLs (including in `xlink:href` and SVG `<animate>` / `<set>` values), and `<iframe srcdoc>`, mirroring the browser's native `setHTML()`. The only escape hatch is explicit and named to make that obvious:
 
 ```ts
 s.sanitizeUnsafe(html); // skips the baseline (mirrors setHTMLUnsafe); the allow-list still applies

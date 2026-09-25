@@ -22,6 +22,7 @@
  * to call repeatedly.
  */
 import type { ElementNode, ParentNode, TreeNode } from './parser/tree-builder';
+import { appendAttr, appendText, escapeText } from './escape';
 
 // Re-export the (runtime-free) node-shape types so entry points and advanced
 // users can build/consume the common tree without importing the parser.
@@ -87,9 +88,12 @@ const VOID_ELEMENTS = new Set(['area', 'base', 'basefont', 'bgsound', 'br', 'col
  * is parsed as normal markup with entities decoded, never as verbatim raw text, so
  * emitting it unescaped would re-materialize decoded markup (a baseline bypass). */
 const RAW_TEXT_ELEMENTS = new Set(['script', 'style', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext']);
-/** Attributes interpreted as URLs (for the baseline scheme check). `xlink href`
- * is the space-stored form of the foreign `xlink:href`. */
-const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'background', 'cite', 'longdesc', 'poster', 'data', 'srcdoc', 'manifest', 'xlink href']);
+/** Attributes interpreted as URLs (for the baseline scheme check). Any other
+ * attribute whose local name is `href` (`xlink href` space-stored foreign form, or
+ * a literal `xlink:href` on an HTML element that re-parses as SVG) is checked too,
+ * see `attrUnsafe`. `srcdoc` is NOT a URL: it is a whole same-origin document, so
+ * the baseline drops it outright. */
+const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'background', 'cite', 'longdesc', 'poster', 'data', 'manifest']);
 
 // ---------------------------------------------------------------------------
 // Policy (resolved, immutable). Deliberately minimal for the scaffold, the
@@ -148,12 +152,55 @@ interface TagSer {
   readonly isVoid: boolean;
   /** Raw-text element, text children serialize unescaped. */
   readonly rawText: boolean;
-  /** Resolved allow-listed attributes (tag-specific ∪ `*`); null = none allowed.
-   * Ignored when `allowAll` is true. */
-  readonly attrSet: ReadonlySet<string> | null;
+  /** Resolved allow-listed attributes (tag-specific ∪ `*`), each mapped to its
+   * precomputed {@link AttrSpec}; null = none allowed. Ignored when `allowAll`. */
+  readonly attrSpecs: ReadonlyMap<string, AttrSpec> | null;
   /** Allow ANY attribute on this tag (from a `'*'` entry in its attr list). The
    * baseline still strips `on*` / dangerous URLs. */
   readonly allowAll: boolean;
+}
+
+/** Baseline attribute kinds. The baseline's decision depends on the attribute NAME
+ * (plus, for URL/attributeName/style, the value), so the name part is classified
+ * ONCE (at build() for allow-listed names, memoized for `allowAll`) instead of
+ * re-running the `on*` / URL_ATTRS / endsWith / toLowerCase chain per attribute.
+ * Must mirror the order of checks in the baseline exactly (see `attrValue`). */
+const K_PLAIN = 0, K_EVENT = 1, K_URL = 2, K_SRCDOC = 3, K_ATTRNAME = 4, K_ANIM_URL = 5, K_ANIM_VALUES = 6, K_STYLE = 7;
+/** Precomputed per-attribute-name data. */
+interface AttrSpec {
+  /** Serialized prefix ` name="` (foreign "xlink href" -> "xlink:href"). */
+  readonly pre: string;
+  /** The serialized name, for `setAttribute`. */
+  readonly dom: string;
+  /** One of the K_* kinds. */
+  readonly kind: number;
+}
+function attrKind(name: string): number {
+  if (name.length >= 2 && name.charCodeAt(0) === 111 && name.charCodeAt(1) === 110) return K_EVENT; // on*
+  if (URL_ATTRS.has(name) || name.endsWith(' href') || name.endsWith(':href')) return K_URL;
+  if (name === 'srcdoc') return K_SRCDOC;
+  if (name.length === 13 && name.toLowerCase() === 'attributename') return K_ATTRNAME;
+  if (name === 'to' || name === 'from' || name === 'by') return K_ANIM_URL;
+  if (name === 'values') return K_ANIM_VALUES;
+  if (name === 'style') return K_STYLE;
+  return K_PLAIN;
+}
+function makeAttrSpec(name: string): AttrSpec {
+  // foreign namespaced attrs are stored as "xlink href" (space) -> "xlink:href"
+  const dom = name.indexOf(' ') === -1 ? name : name.replace(' ', ':');
+  return { pre: ' ' + dom + '="', dom, kind: attrKind(name) };
+}
+/** Memo for `allowAll` tags, whose attribute names are open-ended (attacker-chosen),
+ * so it is bounded: past the cap specs are built per use and not retained. */
+const anySpecMemo = new Map<string, AttrSpec>();
+const ANY_SPEC_MEMO_CAP = 2048;
+function anyAttrSpec(name: string): AttrSpec {
+  let spec = anySpecMemo.get(name);
+  if (spec === undefined) {
+    spec = makeAttrSpec(name);
+    if (anySpecMemo.size < ANY_SPEC_MEMO_CAP) anySpecMemo.set(name, spec);
+  }
+  return spec;
 }
 
 // Minimal Trusted Types shapes, not in the configured DOM lib, and we stay
@@ -190,32 +237,6 @@ export interface SanitizeToOptions {
   readonly chunkSize?: number;
 }
 
-/** Minimal push target the serializer writes fragments to, satisfied by both a
- * plain `string[]` (collect-then-join) and {@link ChunkWriter} (stream). */
-interface StringSink {
-  push(s: string): void;
-}
-
-/** Streaming sink for `sanitizeTo`: batches serializer fragments and flushes them
- * to the user's sink in ~chunkSize-character writes. */
-class ChunkWriter implements StringSink {
-  private parts: string[] = [];
-  private pending = 0;
-  constructor(private readonly sink: (chunk: string) => void, private readonly chunkSize: number) {}
-  push(s: string): void {
-    this.parts.push(s);
-    this.pending += s.length;
-    if (this.pending >= this.chunkSize) this.flush();
-  }
-  flush(): void {
-    if (this.parts.length !== 0) {
-      this.sink(this.parts.join(''));
-      this.parts = [];
-      this.pending = 0;
-    }
-  }
-}
-
 // ---------------------------------------------------------------------------
 // SanitizerCore, the compiled, reusable base object. Abstract over the parser:
 // a concrete subclass supplies `parse()` (custom WHATWG parser, or native DOM).
@@ -225,16 +246,14 @@ class ChunkWriter implements StringSink {
 const RE_CSS_CTRL = /[\u0000-\u001f]/;
 const RE_WS_G = /\s+/g;
 const RE_QUOTES_G = /['"]/g;
-const RE_TEXT_NEEDS = /[&<>\u00a0]/;
-const RE_ATTR_NEEDS = /[&"\u00a0]/;
-const RE_AMP_G = /&/g;
+/** Serializer hand-off size for `sanitize()` (see SanitizerCore.collect). */
+const OUT_CHUNK = 256;
+const JS_SCHEME = 'javascript', VB_SCHEME = 'vbscript', DATA_SCHEME = 'data';
+/** ASCII whitespace per JS `trim` / `\s` restricted to ASCII: TAB LF VT FF CR SP. */
+const isAsciiWs = (c: number): boolean => c === 32 || (c >= 9 && c <= 13);
 // Bounds for the sanitizeStyle memo (see SanitizerCore.sanitizeStyle).
 const STYLE_MEMO_CAP = 512;
 const STYLE_MEMO_MAX_LEN = 256;
-const RE_LT_G = /</g;
-const RE_GT_G = />/g;
-const RE_QUOT_G = /"/g;
-const RE_NBSP_G = /\u00a0/g;
 
 export class SanitizerCore {
   /** Compiled, immutable policy. */
@@ -289,12 +308,17 @@ export class SanitizerCore {
     if (allowAll) attrSet = null;
     else if (own && star) { const m = new Set(own); for (const a of star) m.add(a); attrSet = m; }
     else attrSet = own ?? star ?? null;
+    let attrSpecs: Map<string, AttrSpec> | null = null;
+    if (attrSet !== null && attrSet.size !== 0) {
+      attrSpecs = new Map();
+      for (const a of attrSet) attrSpecs.set(a, makeAttrSpec(a));
+    }
     return {
       open: '<' + tag,
       close: '</' + tag + '>',
       isVoid: VOID_ELEMENTS.has(tag),
       rawText: RAW_TEXT_ELEMENTS.has(tag),
-      attrSet,
+      attrSpecs,
       allowAll,
     };
   }
@@ -325,23 +349,49 @@ export class SanitizerCore {
    * environment default. This is the ONLY pluggable seam, the policy engine and
    * serializer downstream are identical for every parser.
    */
+  /** True when `sanitize()` may stream during tree building: the environment
+   * default parser is in use and html/head/body are not kept (their attributes can
+   * still change after body content has been emitted, via a later duplicate tag). */
+  protected canStream(): boolean {
+    return this.parserOverride === null && this.tagInfo('html') === null && this.tagInfo('head') === null && this.tagInfo('body') === null;
+  }
+
   protected parse(html: string): ParentNode {
     return (this.parserOverride ?? this.defaultParse)(html);
   }
 
   /** Sanitize to a string. Always applies the inviolable safe baseline. */
   sanitize(html: string): string {
-    const out: string[] = [];
-    this.emitChildren(this.parse(html), out, null);
-    return out.join('');
+    return this.collect(html, null);
+  }
+
+  /** Run the pipeline into one string. The serializer grows a short `+=` rope and
+   * hands it off every OUT_CHUNK chars; the pieces are joined once at the end.
+   * Measured against both alternatives: a single whole-document rope is fastest on
+   * small inputs but its long cons chain makes young-gen GC 2-3x slower on
+   * multi-MB documents; push-every-fragment + join pays an array slot per fragment
+   * and a big join. Short ropes in an array get the best of both. */
+  private collect(html: string, removed: Removal[] | null): string {
+    const parts: string[] = [];
+    const rest = this.run(html, removed, (c) => { parts.push(c); }, OUT_CHUNK);
+    if (parts.length === 0) return rest;
+    parts.push(rest);
+    return parts.join('');
+  }
+
+  /** Parse + policy walk + serialize, the one string-output pipeline behind
+   * `sanitize` / `sanitizeWithReport` / `sanitizeTo`. The Node entry overrides it
+   * to serialize completed top-level content during tree building. Returns the
+   * unflushed remainder (all of it when `flush` is null). */
+  protected run(html: string, removed: Removal[] | null, flush: ((chunk: string) => void) | null, chunkSize: number): string {
+    return this.emitChildren(this.parse(html), removed, flush, chunkSize);
   }
 
   /** Sanitize and report what was removed and why (debug / audit / telemetry). */
   sanitizeWithReport(html: string): SanitizeReport {
-    const out: string[] = [];
     const removed: Removal[] = [];
-    this.emitChildren(this.parse(html), out, removed);
-    return { html: out.join(''), removed };
+    const out = this.collect(html, removed);
+    return { html: out, removed };
   }
 
   /**
@@ -360,9 +410,8 @@ export class SanitizerCore {
    */
   sanitizeTo(html: string, sink: SanitizeSink, opts?: SanitizeToOptions): void {
     const write = typeof sink === 'function' ? sink : (c: string) => { sink.write(c); };
-    const writer = new ChunkWriter(write, opts?.chunkSize ?? 16384);
-    this.emitChildren(this.parse(html), writer, null);
-    writer.flush();
+    const rest = this.run(html, null, write, opts?.chunkSize ?? 16384);
+    if (rest !== '') write(rest);
   }
 
   /** Strip all markup to plain text (raw-text/script content excluded). */
@@ -406,32 +455,53 @@ export class SanitizerCore {
   }
   private static ttPolicy: TrustedTypePolicy | undefined;
 
-  // --- DOM + text builders (share elementAction/filterAttrs above) -----------
-  private buildDom(parent: ParentNode, domParent: Node): void {
-    for (const child of parent.children) {
+  // --- DOM + text builders (share elementAction/attrValue) -----------
+  // Both iterative (explicit stack) for the same stack-overflow reason as
+  // `emitChildren`. Children are pushed in reverse so they're visited in order.
+  private buildDom(root: ParentNode, domRoot: Node): void {
+    const nodes: TreeNode[] = [];
+    const targets: Node[] = [];
+    for (let k = root.children.length - 1; k >= 0; k--) { nodes.push(root.children[k]); targets.push(domRoot); }
+    while (nodes.length !== 0) {
+      const child = nodes.pop()!;
+      const domParent = targets.pop()!;
       if (child.type === 'text') {
         domParent.appendChild(document.createTextNode(child.value));
-      } else if (child.type === 'element') {
-        const info = this.tagInfo(child.name);
-        if (info === null) {
-          if (this.elementAction(child) === 'drop') continue;
-          this.buildDom(child, domParent); // unwrap
-          continue;
-        }
+        continue;
+      }
+      if (child.type !== 'element') continue;
+      const info = this.tagInfo(child.name);
+      let into = domParent; // unwrap: children go straight into the current parent
+      if (info === null) {
+        if (this.elementAction(child) === 'drop') continue;
+      } else {
         const el = document.createElement(child.name);
-        for (const [name, v] of this.filterAttrs(child, null, info.attrSet, info.allowAll)) {
-          try { el.setAttribute(SanitizerCore.serializeAttrName(name), v); } catch { /* invalid attr name */ }
+        const attrs = child.attrs;
+        for (let k = 0; k < attrs.length; k++) {
+          const name = attrs[k][0];
+          const spec = info.allowAll ? anyAttrSpec(name) : info.attrSpecs?.get(name);
+          if (spec === undefined) continue;
+          const v = this.attrValue(child.name, name, attrs[k][1], spec.kind, null);
+          if (v === null) continue;
+          try { el.setAttribute(spec.dom, v); } catch { /* invalid attr name */ }
         }
         domParent.appendChild(el);
-        if (!info.isVoid) this.buildDom(child, el);
+        if (info.isVoid) continue;
+        into = el;
       }
+      const kids = child.children;
+      for (let k = kids.length - 1; k >= 0; k--) { nodes.push(kids[k]); targets.push(into); }
     }
   }
-  private static collectText(parent: ParentNode, out: string[]): void {
-    for (const child of parent.children) {
+  private static collectText(root: ParentNode, out: string[]): void {
+    const stack: TreeNode[] = [];
+    for (let k = root.children.length - 1; k >= 0; k--) stack.push(root.children[k]);
+    while (stack.length !== 0) {
+      const child = stack.pop()!;
       if (child.type === 'text') out.push(child.value);
       else if (child.type === 'element' && !RAW_TEXT_ELEMENTS.has(child.name)) {
-        SanitizerCore.collectText(child, out);
+        const kids = child.children;
+        for (let k = kids.length - 1; k >= 0; k--) stack.push(kids[k]);
       }
     }
   }
@@ -444,50 +514,64 @@ export class SanitizerCore {
     if (!this.policy.tags.has(el.name)) return DROP_CONTENT_WHEN_DISALLOWED.has(el.name) ? 'drop' : 'unwrap';
     return 'keep';
   }
-  /** Filtered, sanitized attributes for a kept element; records drops if `removed`.
-   * Lazily allocates: when nothing is dropped or rewritten (the common case) it
-   * returns `el.attrs` itself, so attribute-clean elements cost zero allocations. */
-  private filterAttrs(el: ElementNode, removed: Removal[] | null, allowed: ReadonlySet<string> | null, allowAll: boolean): Array<[string, string]> {
-    const baseline = !this.policy.allowUnsafe;
-    const src = el.attrs;
-    let kept: Array<[string, string]> | null = null;
-    for (let i = 0; i < src.length; i++) {
-      const pair = src[i];
-      const name = pair[0], value = pair[1];
-      let drop = false;
-      let v = value;
-      const allowedHere = allowAll || (allowed !== null && allowed.has(name));
-      if (!allowedHere) {
-        removed?.push({ kind: 'attr', name, reason: 'not-allowed' });
-        drop = true;
-      } else {
-        // transform hook runs on allow-listed attrs only (it can rewrite or drop,
-        // never resurrect a denied one), and its result still goes through the baseline.
-        if (this.attrHook !== null) {
-          const r = this.attrHook({ tag: el.name, name, value: v });
-          if (r === null) { removed?.push({ kind: 'attr', name, reason: 'transformed-out' }); drop = true; }
-          else if (r !== undefined) v = r;
-        }
-        if (!drop && baseline) {
-          if (SanitizerCore.attrUnsafe(name, v)) {
-            const ev = name[0] === 'o' && name[1] === 'n';
-            removed?.push({ kind: ev ? 'attr' : 'url', name, reason: ev ? 'event-handler' : 'dangerous-url' });
-            drop = true;
-          } else if (name === 'style') {
-            v = SanitizerCore.sanitizeStyle(v);
-            if (v === '') { removed?.push({ kind: 'style', name, reason: 'unsafe-css' }); drop = true; }
-            else if (v !== value) removed?.push({ kind: 'style', name, reason: 'unsafe-css-declaration' });
+  /** The single per-attribute decision for an ALLOW-LISTED attribute (the caller
+   * resolved its spec from the tag's allow-list; a miss is "not-allowed"). Runs the
+   * transform hook, then the inviolable baseline by precomputed kind. Returns the
+   * value to emit, or null to drop it (recording why if `removed`). Shared by every
+   * output path, so string / DOM / report can't drift. */
+  private attrValue(tag: string, name: string, value: string, kind: number, removed: Removal[] | null): string | null {
+    let v = value;
+    // transform hook runs on allow-listed attrs only (it can rewrite or drop, never
+    // resurrect a denied one), and its result still goes through the baseline.
+    if (this.attrHook !== null) {
+      const r = this.attrHook({ tag, name, value: v });
+      if (r === null) { removed?.push({ kind: 'attr', name, reason: 'transformed-out' }); return null; }
+      if (r !== undefined) v = r;
+    }
+    if (kind === K_PLAIN || this.policy.allowUnsafe) return v;
+    switch (kind) {
+      case K_EVENT:
+        removed?.push({ kind: 'attr', name, reason: 'event-handler' });
+        return null;
+      case K_URL:
+        if (!SanitizerCore.dangerousUrl(v)) return v;
+        removed?.push({ kind: 'url', name, reason: 'dangerous-url' });
+        return null;
+      case K_SRCDOC: // a srcdoc frame is a same-origin document: raw HTML, not a URL
+        removed?.push({ kind: 'attr', name, reason: 'unsafe-attr' });
+        return null;
+      // SVG <animate>/<set> can rewrite an href to javascript: via to/from/by/values.
+      // Denying an href-targeting attributeName leaves the animation with no target,
+      // and the animation values themselves are URL-checked (`values` is `;`-split).
+      case K_ATTRNAME:
+        if (!v.trim().toLowerCase().endsWith('href')) return v;
+        removed?.push({ kind: 'attr', name, reason: 'unsafe-attr' });
+        return null;
+      case K_ANIM_URL:
+        if (!SanitizerCore.dangerousUrl(v.trim())) return v;
+        removed?.push({ kind: 'url', name, reason: 'dangerous-url' });
+        return null;
+      case K_ANIM_VALUES:
+        if (v.indexOf(':') !== -1) {
+          let start = 0;
+          for (;;) {
+            const end = v.indexOf(';', start);
+            if (SanitizerCore.dangerousUrl(v.slice(start, end === -1 ? v.length : end).trim())) {
+              removed?.push({ kind: 'url', name, reason: 'dangerous-url' });
+              return null;
+            }
+            if (end === -1) break;
+            start = end + 1;
           }
         }
-      }
-      if (drop || v !== value) {
-        if (kept === null) kept = src.slice(0, i); // first divergence → copy the kept prefix
-        if (!drop) kept.push(v === value ? pair : [name, v]);
-      } else if (kept !== null) {
-        kept.push(pair);
+        return v;
+      default: { // K_STYLE
+        const css = SanitizerCore.sanitizeStyle(v);
+        if (css === '') { removed?.push({ kind: 'style', name, reason: 'unsafe-css' }); return null; }
+        if (css !== v) removed?.push({ kind: 'style', name, reason: 'unsafe-css-declaration' });
+        return css;
       }
     }
-    return kept ?? src;
   }
 
   // --- string serializer ----------------------------------------------------
@@ -497,14 +581,30 @@ export class SanitizerCore {
   // default config. The stack holds either a TreeNode to process or a pre-built
   // close-tag string; children are pushed in reverse so they emit in document order,
   // ahead of the close tag pushed before them. Byte-identical to the old recursion.
-  private emitChildren(parent: ParentNode, out: StringSink, removed: Removal[] | null): void {
-    const stack: Array<TreeNode | string> = [];
-    const roots = parent.children;
-    for (let k = roots.length - 1; k >= 0; k--) stack.push(roots[k]);
-    while (stack.length !== 0) {
-      const item = stack.pop()!;
-      if (typeof item === 'string') { out.push(item); continue } // close tag
-      if (item.type === 'text') { out.push(SanitizerCore.escapeText(item.value)); continue }
+  //
+  // Output is ONE string grown with `+=` (V8 cons-string rope, flattened once on
+  // first use) instead of push-to-array + join: no array growth, no join pass,
+  // ~1/3 less allocation on large documents. `sanitizeTo` passes `flush`: once the
+  // pending string reaches chunkSize it goes to the sink and resets, so every chunk
+  // but the last is >= chunkSize and memory stays bounded by ~chunkSize.
+  protected emitChildren(parent: ParentNode, removed: Removal[] | null, flush: ((chunk: string) => void) | null, chunkSize: number, prefix = ''): string {
+    let out = prefix;
+    // Frame stack, one flat array of (children, next index, close tag or '' when
+    // unwrapped) triples: no per-child push, memory bounded by depth not breadth.
+    const frames: Array<TreeNode[] | number | string> = [parent.children, 0, ''];
+    let top = 0;
+    while (top >= 0) {
+      const list = frames[top] as TreeNode[];
+      const i = frames[top + 1] as number;
+      if (i === list.length) {
+        out += frames[top + 2] as string;
+        top -= 3;
+        continue;
+      }
+      frames[top + 1] = i + 1;
+      if (flush !== null && out.length >= chunkSize) { flush(out); out = ''; }
+      const item = list[i];
+      if (item.type === 'text') { out = appendText(out, item.value); continue }
       if (item.type !== 'element') continue; // comments/doctype dropped
       const el = item;
       const info = this.tagInfo(el.name);
@@ -515,19 +615,11 @@ export class SanitizerCore {
         if (removed && el.name !== 'html' && el.name !== 'head' && el.name !== 'body') {
           removed.push({ kind: 'tag', name: el.name, reason: 'not-allowed' });
         }
-        const kids = el.children; // unwrap: process children in place, no wrapper tag
-        for (let k = kids.length - 1; k >= 0; k--) stack.push(kids[k]);
+        // unwrap: process children in place, no wrapper tag
+        top += 3; frames[top] = el.children; frames[top + 1] = 0; frames[top + 2] = '';
         continue;
       }
-      out.push(info.open);
-      if (el.attrs.length !== 0) {
-        const attrs = this.filterAttrs(el, removed, info.attrSet, info.allowAll);
-        for (let k = 0; k < attrs.length; k++) {
-          const a = attrs[k];
-          out.push(' ' + SanitizerCore.serializeAttrName(a[0]) + '="' + SanitizerCore.escapeAttr(a[1]) + '"');
-        }
-      }
-      out.push('>');
+      out = this.emitOpen(el, info, removed, out + info.open) + '>';
       if (info.isVoid) continue;
       // SECURITY: raw-text (unescaped) emission is only correct for HTML-namespace
       // raw-text elements, whose text the tokenizer captured VERBATIM (rawtext state,
@@ -536,23 +628,68 @@ export class SanitizerCore {
       // decoded entities (e.g. `&lt;script&gt;` → `<script>`), so emitting it raw would
       // re-materialize live markup that never passed the policy (a baseline bypass).
       // Rawtext elements contain only a verbatim text run, so emit inline + close now.
+      //
+      // The namespace gate alone is not enough: the context the OUTPUT re-parses in
+      // can differ from the one we parsed (an unwrapped foreignObject / mi / desc, a
+      // dropped annotation-xml `encoding`, mglyph under mtext, or an adapter that
+      // mislabels foreign elements as HTML). There the "raw" text is parsed as
+      // markup. So raw text is emitted verbatim ONLY when it holds no `<`: without
+      // one no tag, comment or end tag can form in any context. Otherwise it is
+      // escaped, which is inert everywhere (shown literally in a real raw-text
+      // context, plain text in any other).
       if (info.rawText && el.namespace === 'html') {
         const kids = el.children;
-        for (let k = 0; k < kids.length; k++) { const c = kids[k]; if (c.type === 'text') out.push(c.value); }
-        out.push(info.close);
+        for (let k = 0; k < kids.length; k++) {
+          const c = kids[k];
+          if (c.type === 'text') out = c.value.indexOf('<') === -1 ? out + c.value : appendText(out, c.value);
+        }
+        out += info.close;
         continue;
       }
-      stack.push(info.close); // close tag emitted after this element's children
-      const kids = el.children;
-      for (let k = kids.length - 1; k >= 0; k--) stack.push(kids[k]);
+      top += 3; frames[top] = el.children; frames[top + 1] = 0; frames[top + 2] = info.close; // close emitted after children
     }
+    return out;
   }
 
-  private static attrUnsafe(name: string, value: string): boolean {
-    if (name.length >= 2 && name[0] === 'o' && name[1] === 'n') return true; // on* event handlers
-    if (URL_ATTRS.has(name) && SanitizerCore.dangerousUrl(value)) return true;
-    return false;
+  /** `out` + the filtered attributes of kept element `el` (the caller has already
+   * appended `<name`; it appends the `>`). Fused filter + emit: no intermediate
+   * kept-attrs array. The one attribute serializer for every string path. */
+  private emitOpen(el: ElementNode, info: TagSer, removed: Removal[] | null, out: string): string {
+    const attrs = el.attrs;
+    if (attrs.length === 0) return out;
+    const specs = info.attrSpecs, allowAll = info.allowAll;
+    for (let k = 0; k < attrs.length; k++) {
+      const pair = attrs[k];
+      const name = pair[0];
+      const spec = allowAll ? anyAttrSpec(name) : specs === null ? undefined : specs.get(name);
+      if (spec === undefined) { removed?.push({ kind: 'attr', name, reason: 'not-allowed' }); continue; }
+      const v = this.attrValue(el.name, name, pair[1], spec.kind, removed);
+      if (v !== null) out = appendAttr(out + spec.pre, v) + '"';
+    }
+    return out;
   }
+
+  /**
+   * For streaming: the output for entering `el` as a container whose children will
+   * be serialized separately, exactly as `emitChildren` would write it. Returns
+   * `[open, close]` (both '' when `el` is unwrapped), or null when `el` can't be
+   * streamed as a container (dropped with its content, void, or raw text); the
+   * caller then leaves it in the tree for the normal walk. Records the same
+   * removals, in the same order, as the walk would at this element.
+   */
+  protected openContainer(el: ElementNode, removed: Removal[] | null): [string, string] | null {
+    const info = this.tagInfo(el.name);
+    if (info === null) {
+      if (this.elementAction(el) === 'drop') return null;
+      if (removed && el.name !== 'html' && el.name !== 'head' && el.name !== 'body') {
+        removed.push({ kind: 'tag', name: el.name, reason: 'not-allowed' });
+      }
+      return ['', ''];
+    }
+    if (info.isVoid || info.rawText) return null;
+    return [this.emitOpen(el, info, removed, info.open) + '>', info.close];
+  }
+
   private static dangerousUrl(value: string): boolean {
     const colon = value.indexOf(':');
     if (colon <= 0) return false; // no scheme (relative / fragment / leading ':') -> safe
@@ -582,25 +719,36 @@ export class SanitizerCore {
       return false; // http/https/mailto/tel/ftp/blob/... are fine
     }
 
-    // SLOW PATH (obfuscated / weird scheme): the native URL parser matches how the
-    // browser resolves the attribute (it strips tab/newline + leading/trailing C0
-    // controls), so it sees the real scheme even through a tab inside "javascript:".
-    let scheme: string | null = null;
-    try {
-      scheme = new URL(value).protocol.slice(0, -1).toLowerCase();
-    } catch {
-      scheme = null;
+    // SLOW PATH (obfuscated scheme, or a relative URL with a ':' later on, e.g.
+    // `/wiki/File:X.png`, `?t=1:30`): extract the scheme exactly as the WHATWG URL
+    // parser does, in one allocation-free scan. Strip leading C0 control/space;
+    // ASCII tab/LF/CR are removed anywhere (so `java\tscript:` IS javascript); a
+    // scheme is an ASCII alpha then [A-Za-z0-9+.-]* up to ':'. Any other char
+    // first means "no scheme": a relative URL, which cannot run script. Replaces a
+    // `new URL()` call that THREW (~2.4us) for every relative URL with a colon.
+    // Only difference from `new URL()`: a javascript:/vbscript:/data: URL whose
+    // REST fails to parse (e.g. `\tjavascript://[`) was kept before, and is now
+    // judged by its scheme and dropped, which is strictly safer.
+    const n = value.length;
+    let i = 0;
+    while (i < n && value.charCodeAt(i) <= 0x20) i++;
+    let len = 0, js = true, vb = true, data = true;
+    for (; i < n; i++) {
+      const c = value.charCodeAt(i);
+      if (c === 9 || c === 10 || c === 13) continue;
+      if (c === 58) break; // ':'
+      const lc = c | 0x20;
+      if (!((lc >= 97 && lc <= 122) || (len !== 0 && ((c >= 48 && c <= 57) || c === 43 || c === 45 || c === 46)))) return false; // no scheme
+      if (js && (len >= 10 || lc !== JS_SCHEME.charCodeAt(len))) js = false;
+      if (vb && (len >= 8 || lc !== VB_SCHEME.charCodeAt(len))) vb = false;
+      if (data && (len >= 4 || lc !== DATA_SCHEME.charCodeAt(len))) data = false;
+      len++;
     }
-    if (scheme !== null) {
-      if (scheme === 'javascript' || scheme === 'vbscript') return true;
-      if (scheme === 'data') return SanitizerCore.dangerousDataUrl(value.trim());
-      return false; // http/https/mailto/tel/ftp/... are fine
-    }
-    // `new URL()` rejected the value outright → it is not a parseable absolute URL,
-    // so a browser won't execute it as a dangerous scheme either. Treat as safe.
-    // (Every real javascript:/vbscript:/data: obfuscation parses, so it was already
-    // resolved above; nothing dangerous reaches here.)
-    return false;
+    // (The loop always stops at a ':': the fast path returned unless one exists,
+    // and ':' is never skipped as whitespace.)
+    if ((js && len === 10) || (vb && len === 8)) return true;
+    if (data && len === 4) return SanitizerCore.dangerousDataUrl(value.trim());
+    return false; // http/https/mailto/tel/ftp/... are fine
   }
   /** A `data:` URL is safe ONLY when it carries a RASTER image type. `image/svg+xml`
    * is rejected: an SVG document rendered from a `data:` URL in a document context
@@ -618,7 +766,14 @@ export class SanitizerCore {
     return true;
   }
   private static dangerousDataUrl(value: string): boolean {
-    const lower = value.slice(0, 20).toLowerCase();
+    // Browsers drop tab/LF/CR anywhere in a URL, so `data:image/s\tvg+xml` IS svg.
+    // Collect the first 20 chars that survive that, lowercased, in one short scan.
+    let lower = '';
+    for (let i = 0; i < value.length && lower.length < 20; i++) {
+      const c = value.charCodeAt(i);
+      if (c !== 9 && c !== 10 && c !== 13) lower += value[i];
+    }
+    lower = lower.toLowerCase();
     if (!lower.startsWith('data:image/')) return true; // non-image data: → dangerous
     // reject data:image/svg and data:image/svg+xml (script-bearing document format)
     return lower.startsWith('data:image/svg');
@@ -642,7 +797,69 @@ export class SanitizerCore {
     }
     return result;
   }
+  /** ASCII fast path of {@link computeSanitizeStyleSlow}, byte-identical to it: one
+   * charCode pass splits declarations (no array of slices), trims by index, and
+   * only allocates the prop/value strings that are emitted. Non-ASCII input takes
+   * the slow path, where Unicode `trim`/`\s`/`toLowerCase` rules differ (e.g.
+   * U+00A0 is whitespace, U+212A lowercases to "k"). */
   private static computeSanitizeStyle(value: string): string {
+    const n = value.length;
+    let res = '';
+    let depth = 0, quote = 0, start = 0;
+    for (let i = 0; i <= n; i++) {
+      if (i < n) {
+        const c = value.charCodeAt(i);
+        if (c >= 0x80) return SanitizerCore.computeSanitizeStyleSlow(value); // not ASCII
+        if (quote !== 0) { if (c === quote) quote = 0; continue; }
+        if (c === 34 || c === 39) { quote = c; continue; }
+        if (c === 40) { depth++; continue; }
+        if (c === 41) { if (depth > 0) depth--; continue; }
+        if (c !== 59 || depth !== 0) continue; // top-level ';' ends a declaration
+      }
+      const decl = SanitizerCore.cssDecl(value, start, i);
+      if (decl !== '') res = res === '' ? decl : res + '; ' + decl;
+      start = i + 1;
+    }
+    return res;
+  }
+  /** One ASCII declaration value[a, b) -> `prop: val`, or '' if dropped. */
+  private static cssDecl(value: string, a: number, b: number): string {
+    const colon = value.indexOf(':', a);
+    if (colon === -1 || colon >= b) return '';
+    let pa = a, pb = colon, va = colon + 1, vb = b;
+    while (pa < pb && isAsciiWs(value.charCodeAt(pa))) pa++;
+    while (pb > pa && isAsciiWs(value.charCodeAt(pb - 1))) pb--;
+    while (va < vb && isAsciiWs(value.charCodeAt(va))) va++;
+    while (vb > va && isAsciiWs(value.charCodeAt(vb - 1))) vb--;
+    if (pa === pb || va === vb) return '';
+    let prop = value.slice(pa, pb);
+    for (let i = pa; i < pb; i++) { const c = value.charCodeAt(i); if (c >= 65 && c <= 90) { prop = prop.toLowerCase(); break; } }
+    if (prop === 'behavior' || prop === '-moz-binding' || prop === '-ms-behavior') return '';
+    // unsafe value? control chars, or (ignoring spaces/quotes, case-insensitive)
+    // expression( / javascript: / vbscript: / url(data: that is not url(data:image/
+    let paren = false, colon2 = false;
+    for (let i = va; i < vb; i++) {
+      const c = value.charCodeAt(i);
+      if (c < 0x20) return ''; // control char (inner tab/newline included)
+      if (c === 40) paren = true;
+      else if (c === 58) colon2 = true;
+    }
+    const val = value.slice(va, vb);
+    if (paren || colon2) {
+      // Needles all contain '(' or ':'; without either nothing can match. Here the
+      // only whitespace left is ' ' (other ASCII ws is < 0x20, rejected above).
+      let v = '';
+      for (let i = va; i < vb; i++) {
+        const c = value.charCodeAt(i);
+        if (c === 32 || c === 34 || c === 39) continue;
+        v += String.fromCharCode(c >= 65 && c <= 90 ? c | 0x20 : c);
+      }
+      if (v.includes('expression(') || v.includes('javascript:') || v.includes('vbscript:')) return '';
+      if (v.includes('url(data:') && !v.includes('url(data:image/')) return '';
+    }
+    return prop + ': ' + val;
+  }
+  private static computeSanitizeStyleSlow(value: string): string {
     const out: string[] = [];
     for (const decl of SanitizerCore.splitDeclarations(value)) {
       const colon = decl.indexOf(':');
@@ -678,19 +895,6 @@ export class SanitizerCore {
     if (v.includes('url(data:') && !v.includes('url(data:image/')) return true;
     return false;
   }
-  private static serializeAttrName(name: string): string {
-    // foreign namespaced attrs are stored as "xlink href" (space) → "xlink:href"
-    return name.indexOf(' ') === -1 ? name : name.replace(' ', ':');
-  }
-  private static escapeText(s: string): string {
-    if (!RE_TEXT_NEEDS.test(s)) return s;
-    return s.replace(RE_AMP_G, '&amp;').replace(RE_LT_G, '&lt;').replace(RE_GT_G, '&gt;').replace(RE_NBSP_G, '&nbsp;');
-  }
-  private static escapeAttr(s: string): string {
-    if (!RE_ATTR_NEEDS.test(s)) return s;
-    return s.replace(RE_AMP_G, '&amp;').replace(RE_QUOT_G, '&quot;').replace(RE_NBSP_G, '&nbsp;');
-  }
-
   /** Escape hatch: skip the inviolable baseline (mirrors `setHTMLUnsafe`). */
   sanitizeUnsafe(html: string): string {
     // Re-parse with the SAME concrete entry (this.constructor) and the same parser,
