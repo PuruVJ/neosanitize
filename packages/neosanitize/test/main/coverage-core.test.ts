@@ -34,10 +34,11 @@ describe('dangerousUrl — fast + slow paths', () => {
     // &#9; decodes to a TAB inside the scheme → clean-scheme scan fails → new URL()
     expect(href('java&#9;script:alert(1)')).toBe(true);   // tab in javascript
     expect(href('da&#9;ta:text/html,x')).toBe(true);      // tab in data (non-image)
-    // An OBFUSCATED data: URL is stripped even if it resolves to an image — the
-    // slow-path image check is intentionally conservative (raw value still has the
-    // tab, so it doesn't match "data:image/"). Over-cautious, but safe.
-    expect(href('da&#9;ta:image/png,x')).toBe(true);
+    // The data: MIME check drops tab/LF/CR first, like the browser, so a tab-split
+    // raster image is kept and a tab-split SVG is caught.
+    expect(href('da&#9;ta:image/png,x')).toBe(false);
+    expect(href('data:image/s&#9;vg+xml,x')).toBe(true);
+    expect(href('da&#9;ta:image/s&#10;vg+xml,x')).toBe(true);
   });
 
   it('an obfuscated but harmless scheme stays allowed via the slow path', () => {

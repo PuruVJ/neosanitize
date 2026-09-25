@@ -46,7 +46,7 @@ Parse a full HTML document into the WHATWG tree.
 
 ### `serialize(node): string`
 
-Serialize a node (or the whole document) back to HTML, faithfully, with no filtering. Escapes text and attribute values, leaves raw-text (`<script>`, `<style>`) unescaped, and self-closes void elements.
+Serialize a node (or the whole document) back to HTML, faithfully, with no filtering. Escapes text and attribute values (including `<` and `>` in attributes, as current browsers do), leaves HTML raw-text elements (`<script>`, `<style>`) unescaped (the same tag names inside SVG / MathML are escaped), and self-closes void elements.
 
 ### `find(root, match)` · `findAll(root, match)`
 

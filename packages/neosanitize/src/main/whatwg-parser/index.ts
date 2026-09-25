@@ -11,6 +11,7 @@
  * `new DOMParser().parseFromString(html, 'text/html')`.
  */
 import { TreeBuilder } from '../parser/tree-builder';
+import { escapeAttr, escapeText } from '../escape';
 import type { DocumentNode, ElementNode, ParentNode, TreeNode } from '../parser/tree-builder';
 
 export type { DocumentNode, ElementNode, TextNode, CommentNode, DoctypeNode, TreeNode, ParentNode, NS } from '../parser/tree-builder';
@@ -32,56 +33,69 @@ export const whatwgAdapter = parse;
 
 // --- serialization (policy-free; faithful HTML output) ----------------------
 const VOID_ELEMENTS = new Set(['area', 'base', 'basefont', 'bgsound', 'br', 'col', 'command', 'embed', 'frame', 'hr', 'img', 'input', 'isindex', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
-const RAW_TEXT = new Set(['style', 'script', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript', 'plaintext']);
+// No `noscript`: `parse()` runs with scripting off, so its content is ordinary
+// markup (entities decoded) and must be escaped like any other text.
+const RAW_TEXT = new Set(['style', 'script', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext']);
 
-const RE_AMP = /&/g;
-const RE_LT = /</g;
-const RE_GT = />/g;
-const RE_QUOT = /"/g;
-const NBSP = String.fromCharCode(0xa0); // U+00A0 — escaped to &nbsp; like the browser
-const escapeText = (s: string) => s.replace(RE_AMP, "&amp;").replace(RE_LT, "&lt;").replace(RE_GT, "&gt;").split(NBSP).join("&nbsp;");
-const escapeAttr = (s: string) => s.replace(RE_AMP, "&amp;").replace(RE_QUOT, "&quot;").split(NBSP).join("&nbsp;");
 // Foreign attrs are stored as "xlink href" (space form) → re-emit as "xlink:href".
 const attrName = (n: string) => (n.indexOf(' ') === -1 ? n : n.replace(' ', ':'));
 
-function emitNode(node: TreeNode, raw: boolean, out: string[]): void {
-	switch (node.type) {
-		case 'text':
-			out.push(raw ? node.value : escapeText(node.value));
-			break;
-		case 'element':
-			out.push('<' + node.name);
-			for (const [k, v] of node.attrs) out.push(' ' + attrName(k) + '="' + escapeAttr(v) + '"');
-			out.push('>');
-			if (VOID_ELEMENTS.has(node.name)) break;
-			for (const child of node.children) emitNode(child, RAW_TEXT.has(node.name), out);
-			out.push('</' + node.name + '>');
-			break;
-		case 'comment':
-			out.push('<!--' + node.value + '-->');
-			break;
-		case 'doctype':
-			out.push('<!DOCTYPE ' + node.name + '>');
-			break;
-	}
-}
-
-/** Serialize a node (or a whole document) back to HTML, faithfully — no filtering. */
+/** Serialize a node (or a whole document) back to HTML, faithfully — no filtering.
+ * Iterative (explicit stack) so deep trees can't overflow the native stack. The
+ * stack holds nodes to emit or pre-built end tags. Raw text is emitted verbatim
+ * only for HTML-namespace raw-text elements: the same tag name inside SVG/MathML
+ * holds decoded text, which would re-parse as live markup. */
 export function serialize(node: DocumentNode | TreeNode): string {
 	const out: string[] = [];
-	if (node.type === 'document') for (const child of node.children) emitNode(child, false, out);
-	else emitNode(node, false, out);
+	const stack: Array<TreeNode | string> = [];
+	if (node.type === 'document') for (let k = node.children.length - 1; k >= 0; k--) stack.push(node.children[k]);
+	else stack.push(node);
+	while (stack.length !== 0) {
+		const item = stack.pop()!;
+		if (typeof item === 'string') { out.push(item); continue; }
+		switch (item.type) {
+			case 'text': {
+				const p = item.parent;
+				const raw = p !== null && p.type === 'element' && p.namespace === 'html' && RAW_TEXT.has(p.name);
+				out.push(raw ? item.value : escapeText(item.value));
+				break;
+			}
+			case 'element':
+				out.push('<' + item.name);
+				for (const [k, v] of item.attrs) out.push(' ' + attrName(k) + '="' + escapeAttr(v) + '"');
+				out.push('>');
+				if (VOID_ELEMENTS.has(item.name)) break;
+				stack.push('</' + item.name + '>');
+				for (let k = item.children.length - 1; k >= 0; k--) stack.push(item.children[k]);
+				break;
+			case 'comment':
+				out.push('<!--' + item.value + '-->');
+				break;
+			case 'doctype':
+				out.push('<!DOCTYPE ' + item.name + '>');
+				break;
+		}
+	}
 	return out.join('');
 }
 
 // --- traversal --------------------------------------------------------------
+// All iterative (explicit stack, children pushed in reverse = document order).
+
 /**
  * Depth-first (pre-order) walk over every descendant of `root`. Return `false`
  * from the visitor to skip that node's subtree.
  */
 export function walk(root: ParentNode, visit: (node: TreeNode, parent: ParentNode) => void | boolean): void {
-	for (const child of root.children) {
-		if (visit(child, root) !== false && child.type === 'element') walk(child, visit);
+	const nodes: TreeNode[] = [];
+	const parents: ParentNode[] = [];
+	for (let k = root.children.length - 1; k >= 0; k--) { nodes.push(root.children[k]); parents.push(root); }
+	while (nodes.length !== 0) {
+		const child = nodes.pop()!;
+		const parent = parents.pop()!;
+		if (visit(child, parent) !== false && child.type === 'element') {
+			for (let k = child.children.length - 1; k >= 0; k--) { nodes.push(child.children[k]); parents.push(child); }
+		}
 	}
 }
 
@@ -89,9 +103,15 @@ export function walk(root: ParentNode, visit: (node: TreeNode, parent: ParentNod
 export function textContent(node: DocumentNode | TreeNode): string {
 	if (node.type === 'text') return node.value;
 	if (node.type === 'comment' || node.type === 'doctype') return '';
-	let s = '';
-	for (const child of node.children) s += textContent(child);
-	return s;
+	const out: string[] = [];
+	const stack: TreeNode[] = [];
+	for (let k = node.children.length - 1; k >= 0; k--) stack.push(node.children[k]);
+	while (stack.length !== 0) {
+		const n = stack.pop()!;
+		if (n.type === 'text') out.push(n.value);
+		else if (n.type === 'element') for (let k = n.children.length - 1; k >= 0; k--) stack.push(n.children[k]);
+	}
+	return out.join('');
 }
 
 /** A tag name (e.g. `'a'`) or a predicate over elements. */
@@ -100,11 +120,13 @@ const matches = (el: ElementNode, m: ElementMatch) => (typeof m === 'string' ? e
 
 /** First descendant element matching a tag name or predicate, or `null`. */
 export function find(root: ParentNode, match: ElementMatch): ElementNode | null {
-	for (const child of root.children) {
-		if (child.type !== 'element') continue;
-		if (matches(child, match)) return child;
-		const inner = find(child, match);
-		if (inner) return inner;
+	const stack: TreeNode[] = [];
+	for (let k = root.children.length - 1; k >= 0; k--) stack.push(root.children[k]);
+	while (stack.length !== 0) {
+		const n = stack.pop()!;
+		if (n.type !== 'element') continue;
+		if (matches(n, match)) return n;
+		for (let k = n.children.length - 1; k >= 0; k--) stack.push(n.children[k]);
 	}
 	return null;
 }
@@ -112,12 +134,13 @@ export function find(root: ParentNode, match: ElementMatch): ElementNode | null 
 /** Every descendant element matching a tag name or predicate (document order). */
 export function findAll(root: ParentNode, match: ElementMatch): ElementNode[] {
 	const acc: ElementNode[] = [];
-	(function rec(parent: ParentNode) {
-		for (const child of parent.children) {
-			if (child.type !== 'element') continue;
-			if (matches(child, match)) acc.push(child);
-			rec(child);
-		}
-	})(root);
+	const stack: TreeNode[] = [];
+	for (let k = root.children.length - 1; k >= 0; k--) stack.push(root.children[k]);
+	while (stack.length !== 0) {
+		const n = stack.pop()!;
+		if (n.type !== 'element') continue;
+		if (matches(n, match)) acc.push(n);
+		for (let k = n.children.length - 1; k >= 0; k--) stack.push(n.children[k]);
+	}
 	return acc;
 }

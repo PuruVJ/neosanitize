@@ -88,6 +88,7 @@
 		"bench": "pnpm build && node bench/index.mjs",
 		"bench:3way": "pnpm build && node bench/three-way.mjs",
 		"bench:adapters": "pnpm build && node bench/adapters.mjs --json",
+		"bench:scale": "pnpm build && node bench/scale.mjs",
 		"fuzz": "pnpm build && node audit/fuzz.mjs",
 		"fuzz:loop": "pnpm build && node audit/fuzz-loop.mjs",
 		"coverage": "vitest run --coverage",
