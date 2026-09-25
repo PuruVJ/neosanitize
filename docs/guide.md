@@ -41,7 +41,7 @@ sanitizer.sanitize('<p>hi <img src=x onerror=alert(1)> <script>bad()</script></p
 Start from scratch, deny-by-default, so everything not allow-listed is removed:
 
 ```ts
-const s = Sanitizer.builder({ tags: ['a', 'b', 'p'], attrs: { a: ['href'] } }).build();
+const s = Sanitizer.builder().allow(['a', 'b', 'p']).allow('a', ['href']).build();
 s.sanitize('<p>see <a href="/docs" onclick="x()">docs</a><iframe></iframe></p>');
 // → '<p>see <a href="/docs">docs</a></p>'
 ```

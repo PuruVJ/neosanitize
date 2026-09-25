@@ -6,15 +6,16 @@
  * each adapter sanitizes correctly (the inviolable baseline holds regardless of parser).
  */
 import { describe, it, expect } from 'vitest';
-import { Sanitizer, whatwgAdapter } from '../../src/main/index';
+import { Sanitizer, whatwgAdapter, type Preset } from '../../src/main/index';
 import { whatwgAdapter as whatwgAdapterFromModule } from '../../src/main/whatwg-parser';
 import { parse5Adapter } from '../../src/main/parse5';
 import { htmlparser2Adapter } from '../../src/main/htmlparser2';
 
-const policy = {
-  tags: ['p', 'a', 'b', 'i', 'em', 'strong', 'span', 'div', 'ul', 'ol', 'li', 'img', 'code', 'pre', 'br'],
-  attrs: { a: ['href', 'title'], img: ['src', 'alt'], '*': ['class'] }
-};
+const policy: Preset = (b) =>
+  b.allow(['p', 'a', 'b', 'i', 'em', 'strong', 'span', 'div', 'ul', 'ol', 'li', 'img', 'code', 'pre', 'br'])
+    .allow('a', ['href', 'title'])
+    .allow('img', ['src', 'alt'])
+    .allow('*', ['class']);
 
 const adapters = [
   { name: 'default (whatwg)', make: () => Sanitizer.builder(policy).build() },
@@ -75,7 +76,7 @@ describe('parse-adapter system', () => {
       walk(tree);
       return tree;
     };
-    const s = Sanitizer.builder({ tags: ['b'] })
+    const s = Sanitizer.builder().allow('b')
       .parser(markerAdapter)
       .build();
     expect(s.sanitize('<p>x</p>')).toBe('<b>x</b>');
@@ -83,7 +84,7 @@ describe('parse-adapter system', () => {
   });
 
   it('parse5 namespaces foreign content (svg) like the default parser', () => {
-    const p = { tags: ['svg', 'a'], attrs: { a: ['xlink href'] } };
+    const p: Preset = (b) => b.allow(['svg', 'a']).allow('a', ['xlink href']);
     const html = '<svg><a xlink:href="/x"></a></svg>';
     const def = Sanitizer.builder(p).build().sanitize(html);
     const p5 = Sanitizer.builder(p).parser(parse5Adapter).build().sanitize(html);

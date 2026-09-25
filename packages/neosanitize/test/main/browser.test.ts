@@ -12,7 +12,7 @@
  * so it needs no test here.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { Sanitizer as BrowserSanitizer, SanitizerBuilder, UNSAFE_PRESET_SYMBOL, version } from '../../src/main/browser';
+import { Sanitizer as BrowserSanitizer, SanitizerBuilder, version, type Preset } from '../../src/main/browser';
 import { Sanitizer as NodeSanitizer } from '../../src/main/index';
 
 const XHTML = 'http://www.w3.org/1999/xhtml';
@@ -63,10 +63,9 @@ describe('browser entry — export parity', () => {
   it('exposes the same class-only API surface as the default entry', () => {
     expect(typeof BrowserSanitizer).toBe('function');
     expect(typeof SanitizerBuilder).toBe('function');
-    expect(typeof UNSAFE_PRESET_SYMBOL).toBe('symbol');
     expect(version).toBe('0.0.0-dev');
     // builder() is inherited and returns a builder whose build() is a Sanitizer
-    const s = BrowserSanitizer.builder({ tags: ['b'] }).build();
+    const s = BrowserSanitizer.builder().allow('b').build();
     expect(s).toBeInstanceOf(BrowserSanitizer);
   });
 });
@@ -74,13 +73,13 @@ describe('browser entry — export parity', () => {
 describe('browser entry — requires a DOM', () => {
   it('throws a clear error when DOMParser is unavailable', () => {
     expect((globalThis as Record<string, unknown>).DOMParser).toBeUndefined();
-    const s = BrowserSanitizer.builder({ tags: ['b'] }).build();
+    const s = BrowserSanitizer.builder().allow('b').build();
     expect(() => s.sanitize('<b>hi</b>')).toThrow(/no DOM available/);
   });
 });
 
 describe('browser entry — DOMParser path + inviolable baseline', () => {
-  const policy = { tags: ['a', 'b', 'svg'], attrs: { a: ['href'] } };
+  const policy: Preset = (b) => b.allow(['a', 'b', 'svg']).allow('a', ['href']);
 
   it('keeps allow-listed tags, escapes text, unwraps the rest', () => {
     withDom(docOf(el('a', { href: '/ok' }, [text('hi')]), el('span', {}, [text(' world')])), () => {
@@ -115,7 +114,7 @@ describe('browser entry — DOMParser path + inviolable baseline', () => {
     tmpl.content = { childNodes: [el('b', {}, [text('inside')])] };
     // template is allow-listed here so its (sanitized) content is emitted
     withDom(docOf(tmpl), () => {
-      const s = BrowserSanitizer.builder({ tags: ['template', 'b'] }).build();
+      const s = BrowserSanitizer.builder().allow(['template', 'b']).build();
       expect(s.sanitize('ignored')).toBe('<template><b>inside</b></template>');
     });
   });

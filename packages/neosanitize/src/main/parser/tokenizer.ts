@@ -507,7 +507,13 @@ export class Tokenizer {
       // Attributes -----------------------------------------------------------
       case S.BeforeAttrName:
         if (eof || c === 0x2f || c === 0x3e) return this.reconsume(S.AfterAttrName, c, eof);
-        if (isWs(c)) { this.i++; return true; }
+        if (isWs(c)) {
+          // Consume the whole whitespace run in one step (attr-dense markup separates
+          // attributes with newline+indent), not one step() call per ws char.
+          const input = this.input, len = this.len; let j = this.i + 1;
+          while (j < len) { const cc = input.charCodeAt(j); if (cc !== 0x09 && cc !== 0x0a && cc !== 0x0c && cc !== 0x20) break; j++; }
+          this.i = j; return true;
+        }
         this.addAttr();
         // `=` here starts an attribute whose name begins with '=' (parse error).
         if (c === 0x3d) { this.i++; this.attrName = '='; this.state = S.AttrName; return true; }
@@ -520,7 +526,16 @@ export class Tokenizer {
           const run = input.slice(this.i, j); this.attrName += up ? foldAsciiUpper(run) : run; this.i = j; return true;
         }
         this.i++;
-        if (c === 0x3d) this.state = S.BeforeAttrValue;
+        if (c === 0x3d) {
+          // Peek past `=`: for the canonical `name="value"` / `name='value'` shape
+          // (quote immediately follows), jump straight into the quoted-value state,
+          // skipping the BeforeAttrValue dispatch. Any other char (ws, unquoted, `>`)
+          // falls through to BeforeAttrValue unchanged.
+          const nc = this.i < this.len ? this.input.charCodeAt(this.i) : -1;
+          if (nc === 0x22) { this.i++; this.state = S.AttrValueDq; }
+          else if (nc === 0x27) { this.i++; this.state = S.AttrValueSq; }
+          else this.state = S.BeforeAttrValue;
+        }
         else this.attrName += REPLACEMENT; // c === 0
         return true;
       }

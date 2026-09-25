@@ -12,7 +12,7 @@
  */
 export * from './core';
 
-import { SanitizerCore, type ParseAdapter, type Policy } from './core';
+import { SanitizerCore, type SanitizerOptions, type Policy } from './core';
 import { whatwgAdapter } from './whatwg-parser';
 
 // The default parse adapter. Re-exported from the whatwg-parser module so the
@@ -26,7 +26,7 @@ export { whatwgAdapter };
  * parser with `.parser(adapter)` (e.g. `parse5Adapter` from `neosanitize/parse5`).
  */
 export class Sanitizer extends SanitizerCore {
-  constructor(policy?: Policy, parser: ParseAdapter | null = null) {
-    super(policy, whatwgAdapter, parser);
+  constructor(policy?: Policy, opts: SanitizerOptions = {}) {
+    super(policy, whatwgAdapter, opts);
   }
 }

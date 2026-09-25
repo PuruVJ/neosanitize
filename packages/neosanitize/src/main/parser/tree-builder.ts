@@ -76,6 +76,16 @@ const TABLE_ROOT_CTX = new Set(['table', 'template', 'html']);
 const TABLE_BODY_CTX = new Set(['tbody', 'tfoot', 'thead', 'template', 'html']);
 const TABLE_ROW_CTX = new Set(['tr', 'template', 'html']);
 const CELL_OR_CAPTION_START = new Set(['caption', 'col', 'colgroup', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr']);
+// Stray-tag ignore/close lists used per-token by the table insertion modes. Hoisted
+// (a `[...].includes()` literal would allocate an array on each token).
+const INTABLE_IGNORED_END = new Set(['body', 'caption', 'col', 'colgroup', 'html', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr']);
+const INCAPTION_IGNORED_END = new Set(['body', 'col', 'colgroup', 'html', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr']);
+const INTABLEBODY_SCOPE_START = new Set(['caption', 'col', 'colgroup', 'tbody', 'tfoot', 'thead']);
+const INTABLEBODY_IGNORED_END = new Set(['body', 'caption', 'col', 'colgroup', 'html', 'td', 'th', 'tr']);
+const INROW_SCOPE_START = new Set(['caption', 'col', 'colgroup', 'tbody', 'tfoot', 'thead', 'tr']);
+const INROW_IGNORED_END = new Set(['body', 'caption', 'col', 'colgroup', 'html', 'td', 'th']);
+const INCELL_IGNORED_END = new Set(['body', 'caption', 'col', 'colgroup', 'html']);
+const INCELL_TABLE_END = new Set(['table', 'tbody', 'tfoot', 'thead', 'tr']);
 
 // --- Foreign content (SVG/MathML) adjustment tables (WHATWG 13.2.6) ----------
 // HTML start tags that "break out" of foreign content back to HTML parsing.
@@ -93,9 +103,14 @@ const FOREIGN_ATTR = new Map<string, string>(Object.entries({
   'xlink:actuate': 'xlink actuate', 'xlink:arcrole': 'xlink arcrole', 'xlink:href': 'xlink href', 'xlink:role': 'xlink role', 'xlink:show': 'xlink show', 'xlink:title': 'xlink title', 'xlink:type': 'xlink type', 'xml:lang': 'xml lang', 'xml:space': 'xml space', 'xmlns:xlink': 'xmlns xlink'
 }));
 
-const WS = new Set([' ', '\t', '\n', '\f']);
+// charCode scan (space/tab/LF/FF) — the `for...of` + `Set<string>.has` per char was a
+// hash lookup per whitespace character on a hot path. Input preprocessing already
+// normalized CR→LF, so 0x0d never appears here.
 function isAllWs(s: string): boolean {
-  for (const ch of s) if (!WS.has(ch)) return false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c !== 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0c) return false;
+  }
   return true;
 }
 
@@ -182,7 +197,7 @@ export class TreeBuilder {
   private insertAt(place: { parent: ParentNode; before: TreeNode | null }, node: TreeNode) {
     node.parent = place.parent;
     if (place.before) {
-      const idx = place.parent.children.indexOf(place.before);
+      const idx = place.parent.children.lastIndexOf(place.before); // foster ref (table) sits at the end → search from back (O(1))
       /* v8 ignore start -- defensive fallback for an impossible state (ref always found / current is an element / stack non-empty) */
       place.parent.children.splice(idx < 0 ? place.parent.children.length : idx, 0, node);
       /* v8 ignore stop */
@@ -201,6 +216,26 @@ export class TreeBuilder {
     if (this.fosterParenting) this.insertAt(this.appropriatePlace(), el);
     else { const parent = this.current(); el.parent = parent; parent.children.push(el); }
     this.open.push(el);
+    // The ONLY site that pushes an HTML <p> onto the open stack (insertForeign and
+    // reconstructFormatting never create one). Keeps pOpen (see hasInButtonScope).
+    if (ns === 'html' && el.name === 'p') this.pOpen++;
+    return el;
+  }
+  /** Number of HTML `<p>` elements currently on the open stack. Maintained so the
+   * super-hot `hasInButtonScope('p')` (called by `closePElement` on every block/
+   * heading/li/table/… start tag) can short-circuit to `false` in O(1) when no `<p>`
+   * is open, instead of scanning the whole stack — which was O(depth²) on deeply
+   * nested block input (a real quadratic-DoS surface). INVARIANT: only ever
+   * *over*-counts on a missed decrement, never under-counts (increment is the single
+   * site above; every removal goes through `popEl`, and the sole p-capable splice is
+   * guarded in `adoptionAgency`). An over-count is safe: it just falls back to the
+   * exact scan below. */
+  private pOpen = 0;
+  /** Pop the open-stack top, keeping `pOpen` exact. All `this.open.pop()` sites route
+   * here so a popped `<p>` decrements the counter. */
+  private popEl(): ElementNode | undefined {
+    const el = this.open.pop();
+    if (el !== undefined && el.name === 'p' && el.namespace === 'html') this.pOpen--;
     return el;
   }
   private insertText(data: string) {
@@ -214,7 +249,7 @@ export class TreeBuilder {
     }
     const place = this.appropriatePlace();
     const siblings = place.parent.children;
-    const refIdx = place.before ? siblings.indexOf(place.before) : siblings.length;
+    const refIdx = place.before ? siblings.lastIndexOf(place.before) : siblings.length;
     const prev = siblings[refIdx - 1];
     if (prev && prev.type === 'text') { prev.value += data; return; }
     const node: TextNode = { type: 'text', value: data, parent: place.parent };
@@ -225,7 +260,7 @@ export class TreeBuilder {
   }
   private popUntil(name: string) {
     while (this.open.length) {
-      const el = this.open.pop()!;
+      const el = this.popEl()!;
       if (el.name === name) break;
     }
   }
@@ -252,12 +287,17 @@ export class TreeBuilder {
   private generateImpliedEndTags(except?: string) {
     while (this.open.length) {
       const c = this.open[this.open.length - 1];
-      if (c.name !== except && IMPLIED_END.has(c.name)) this.open.pop();
+      if (c.name !== except && IMPLIED_END.has(c.name)) this.popEl();
       else break;
     }
   }
   /** "in button scope" — like in-scope, but `button` is also a boundary. */
   private hasInButtonScope(target: string): boolean {
+    // O(1) short-circuit for the overwhelmingly common `p` query: if no <p> is open
+    // at all, the scan can only return false — skip it. Kills the O(depth²) rescan on
+    // deeply nested block input. (When pOpen > 0 the exact scan below always runs, so
+    // scope-marker semantics are never bypassed; and pOpen only ever over-counts.)
+    if (target === 'p' && this.pOpen === 0) return false;
     for (let i = this.open.length - 1; i >= 0; i--) {
       const el = this.open[i];
       if (el.name === target && el.namespace === 'html') return true;
@@ -396,10 +436,10 @@ export class TreeBuilder {
     // matching insertElement, instead of always appending to the current node.
     this.insertAt(this.appropriatePlace(), el);
     this.open.push(el);
-    if (t.selfClosing) this.open.pop();
+    if (t.selfClosing) this.popEl();
   }
   private foreignContent(t: Token) {
-    if (t.type === 'character') { this.insertText(t.data); if (!isAllWs(t.data)) this.framesetOk = false; return; }
+    if (t.type === 'character') { this.insertText(t.data); if (this.framesetOk && !isAllWs(t.data)) this.framesetOk = false; return; }
     if (t.type === 'comment') { this.insertComment(t.data); return; }
     /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
     if (t.type === 'doctype') return;
@@ -411,7 +451,7 @@ export class TreeBuilder {
         while (this.open.length) {
           const cur = this.open[this.open.length - 1];
           if (cur.namespace === 'html' || this.isMathmlTextIP(cur) || this.isHtmlIP(cur)) break;
-          this.open.pop();
+          this.popEl();
         }
         this.dispatchMode(t);
         return;
@@ -422,7 +462,7 @@ export class TreeBuilder {
     if (t.type === 'endTag') {
       for (let i = this.open.length - 1; i >= 0; i--) {
         const node = this.open[i];
-        if (node.name.toLowerCase() === t.name) { while (this.open.length > i) this.open.pop(); return; }
+        if (node.name.toLowerCase() === t.name) { while (this.open.length > i) this.popEl(); return; }
         if (node.namespace === 'html') { this.dispatchMode(t); return; }
       }
     }
@@ -501,7 +541,7 @@ export class TreeBuilder {
     }
     if (t.type === 'startTag') {
       if (t.name === 'html') return this.mInBody(t);
-      if (VOID.has(t.name) && HEAD_TAGS.has(t.name)) { this.insertElement(t); this.open.pop(); return; }
+      if (VOID.has(t.name) && HEAD_TAGS.has(t.name)) { this.insertElement(t); this.popEl(); return; }
       if (t.name === 'title') { this.insertElement(t); this.tk.setContentState('rcdata'); this.tk.setLastStartTag('title'); this.originalMode = this.mode; this.mode = 'text'; return; }
       // scripting DISABLED (our default + the conformance suite's): <noscript> in
       // head parses its content as normal HTML via the "in head noscript" mode,
@@ -517,10 +557,10 @@ export class TreeBuilder {
       if (t.name === 'head') return;
       // fall through: anything else closes head
     }
-    if (t.type === 'endTag' && t.name === 'head') { this.open.pop(); this.mode = 'afterHead'; return; }
+    if (t.type === 'endTag' && t.name === 'head') { this.popEl(); this.mode = 'afterHead'; return; }
     if (t.type === 'endTag' && (t.name === 'body' || t.name === 'html' || t.name === 'br')) { /* fall through */ }
     else if (t.type === 'endTag') return;
-    this.open.pop(); // pop head
+    this.popEl(); // pop head
     this.mode = 'afterHead';
     this.process(t);
   }
@@ -530,13 +570,13 @@ export class TreeBuilder {
   private mInHeadNoscript(t: Token) {
     if (t.type === 'doctype') return;
     if (t.type === 'startTag' && t.name === 'html') return this.mInBody(t);
-    if (t.type === 'endTag' && t.name === 'noscript') { this.open.pop(); this.mode = 'inHead'; return; }
+    if (t.type === 'endTag' && t.name === 'noscript') { this.popEl(); this.mode = 'inHead'; return; }
     if (t.type === 'character' && isAllWs(t.data)) return this.mInHead(t);
     if (t.type === 'comment') return this.mInHead(t);
     if (t.type === 'startTag' && (t.name === 'basefont' || t.name === 'bgsound' || t.name === 'link' || t.name === 'meta' || t.name === 'noframes' || t.name === 'style')) return this.mInHead(t);
     if (t.type === 'startTag' && (t.name === 'head' || t.name === 'noscript')) return; // ignore
     // anything else (incl </br>): parse error → pop noscript, back to in head, reprocess.
-    this.open.pop();
+    this.popEl();
     this.mode = 'inHead';
     return this.process(t);
   }
@@ -561,7 +601,9 @@ export class TreeBuilder {
     if (t.type === 'character') {
       this.reconstructFormatting();
       this.insertText(t.data);
-      if (!isAllWs(t.data)) this.framesetOk = false;
+      // Once framesetOk is false (almost immediately in real documents — the first
+      // non-whitespace text), skip the per-character-run whitespace scan entirely.
+      if (this.framesetOk && !isAllWs(t.data)) this.framesetOk = false;
       return;
     }
     if (t.type === 'comment') { this.insertComment(t.data); return; }
@@ -586,7 +628,7 @@ export class TreeBuilder {
       const body = this.open[1];
       if (!this.framesetOk || !body || body.name !== 'body' || body.namespace !== 'html') return;
       this.removeFromParent(body);
-      while (this.open.length > 1) this.open.pop();
+      while (this.open.length > 1) this.popEl();
       this.insertElement(t);
       this.mode = 'inFrameset';
       return;
@@ -600,7 +642,7 @@ export class TreeBuilder {
     if (HEADINGS.has(n)) {
       this.closePElement();
       /* v8 ignore start -- defensive fallback for an impossible state (ref always found / current is an element / stack non-empty) */
-      if (HEADINGS.has(this.current().type === 'element' ? (this.current() as ElementNode).name : '')) this.open.pop();
+      if (HEADINGS.has(this.current().type === 'element' ? (this.current() as ElementNode).name : '')) this.popEl();
       /* v8 ignore stop */
       this.insertElement(t);
       return;
@@ -641,14 +683,14 @@ export class TreeBuilder {
     if (n === 'hr') {
       this.closePElement();
       this.insertElement(t);
-      this.open.pop();
+      this.popEl();
       this.framesetOk = false;
       return;
     }
     if (n === 'param' || n === 'source' || n === 'track') {
       // void, but (unlike img/br/embed/…) do NOT clear framesetOk or reconstruct.
       this.insertElement(t);
-      this.open.pop();
+      this.popEl();
       return;
     }
     if (n === 'form') {
@@ -662,7 +704,7 @@ export class TreeBuilder {
     if (n === 'br' || VOID.has(n)) {
       this.reconstructFormatting();
       this.insertElement(t);
-      this.open.pop();
+      this.popEl();
       // input keeps framesetOk only for type=hidden; every other void clears it.
       if (n === 'input') { if (!t.attrs.some(([k, v]) => k === 'type' && v.toLowerCase() === 'hidden')) this.framesetOk = false; }
       else this.framesetOk = false;
@@ -711,7 +753,7 @@ export class TreeBuilder {
       return;
     }
     if (n === 'optgroup' || n === 'option') {
-      if (this.current().type === 'element' && (this.current() as ElementNode).name === 'option') this.open.pop();
+      if (this.current().type === 'element' && (this.current() as ElementNode).name === 'option') this.popEl();
       this.reconstructFormatting();
       this.insertElement(t);
       return;
@@ -719,7 +761,7 @@ export class TreeBuilder {
     if (n === 'caption' || n === 'col' || n === 'colgroup' || n === 'tbody' || n === 'td' || n === 'tfoot' || n === 'th' || n === 'thead' || n === 'tr' || n === 'frame' || n === 'head') {
       return; // ignored as a start tag in body
     }
-    if (n === 'image') { this.insertElement({ ...t, name: 'img' }); this.open.pop(); this.framesetOk = false; return; }
+    if (n === 'image') { this.insertElement({ ...t, name: 'img' }); this.popEl(); this.framesetOk = false; return; }
     if (n === 'rb' || n === 'rtc') { if (this.hasInScope('ruby')) this.generateImpliedEndTags(); this.insertElement(t); return; }
     if (n === 'rp' || n === 'rt') { if (this.hasInScope('ruby')) this.generateImpliedEndTags('rtc'); this.insertElement(t); return; }
     if (n === 'svg') { this.reconstructFormatting(); this.insertForeign(t, 'svg'); return; }
@@ -759,7 +801,7 @@ export class TreeBuilder {
       }
       if (!inScope) return; // parse error: no heading in scope → ignore
       this.generateImpliedEndTags();
-      while (this.open.length) { const el = this.open.pop() as ElementNode; if (HEADINGS.has(el.name)) break; }
+      while (this.open.length) { const el = this.popEl() as ElementNode; if (HEADINGS.has(el.name)) break; }
       return;
     }
     if (n === 'form') {
@@ -800,7 +842,7 @@ export class TreeBuilder {
       const el = this.open[i];
       if (el.name === n) {
         this.generateImpliedEndTags(n);
-        while (this.open.length > i) this.open.pop();
+        while (this.open.length > i) this.popEl();
         return;
       }
       if (SPECIAL.has(el.name)) return;
@@ -827,7 +869,7 @@ export class TreeBuilder {
         if (this.open[k].name === 'table') { lt = this.open[k]; lti = k; break; }
       }
       if (lt && lt.parent) {
-        const j = lt.parent.children.indexOf(lt);
+        const j = lt.parent.children.lastIndexOf(lt); // table sits at the end → search from back (O(1))
         /* v8 ignore start -- defensive fallback for an impossible state (ref always found / current is an element / stack non-empty) */
         lt.parent.children.splice(j < 0 ? lt.parent.children.length : j, 0, node);
         /* v8 ignore stop */
@@ -860,7 +902,7 @@ export class TreeBuilder {
   private adoptionAgency(tag: string) {
     const cur = this.open[this.open.length - 1];
     /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
-    if (cur && cur.name === tag && this.afe.indexOf(cur) === -1) { this.open.pop(); return; }
+    if (cur && cur.name === tag && this.afe.indexOf(cur) === -1) { this.popEl(); return; }
     /* v8 ignore stop */
 
     for (let outer = 0; outer < 8; outer++) {
@@ -884,7 +926,7 @@ export class TreeBuilder {
         if (SPECIAL.has(this.open[i].name)) { furthestBlock = this.open[i]; furthestIdx = i; break; }
       }
       if (!furthestBlock) {
-        while (this.open.length > openIdx) this.open.pop();
+        while (this.open.length > openIdx) this.popEl();
         this.afe.splice(fmtIdx, 1);
         return;
       }
@@ -903,7 +945,12 @@ export class TreeBuilder {
         if (node === fmtEl) break;
         let afeIdx = this.afe.indexOf(node);
         if (inner > 3 && afeIdx !== -1) { this.afe.splice(afeIdx, 1); afeIdx = -1; }
-        if (afeIdx === -1) { this.open.splice(nodeIdx, 1); continue; }
+        if (afeIdx === -1) {
+          // The one splice that can remove an HTML <p> from the open stack — keep pOpen exact.
+          if (node.name === 'p' && node.namespace === 'html') this.pOpen--;
+          this.open.splice(nodeIdx, 1);
+          continue;
+        }
         const clone = this.cloneElement(node);
         this.afe[afeIdx] = clone;
         this.open[nodeIdx] = clone;
@@ -938,9 +985,9 @@ export class TreeBuilder {
 
   private mText(t: Token) {
     if (t.type === 'character') { this.insertText(t.data); return; }
-    if (t.type === 'endTag') { this.open.pop(); this.mode = this.originalMode; return; }
+    if (t.type === 'endTag') { this.popEl(); this.mode = this.originalMode; return; }
     // EOF or other: pop and reprocess
-    this.open.pop();
+    this.popEl();
     this.mode = this.originalMode;
     this.process(t);
   }
@@ -986,7 +1033,7 @@ export class TreeBuilder {
       const n = t.name;
       if (n === 'html') return this.mInBody(t);
       if (n === 'frameset') { this.insertElement(t); return; }
-      if (n === 'frame') { this.insertElement(t); this.open.pop(); return; }
+      if (n === 'frame') { this.insertElement(t); this.popEl(); return; }
       if (n === 'noframes') return this.mInHead(t);
       return;
     }
@@ -994,7 +1041,7 @@ export class TreeBuilder {
       /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
       if (this.currentName() === 'html') return; // fragment case: ignore
       /* v8 ignore stop */
-      this.open.pop();
+      this.popEl();
       if (this.currentName() !== 'frameset') this.mode = 'afterFrameset';
       return;
     }
@@ -1034,7 +1081,7 @@ export class TreeBuilder {
     /* v8 ignore stop */
   }
   private clearStackTo(ctx: Set<string>) {
-    while (this.open.length && !ctx.has(this.open[this.open.length - 1].name)) this.open.pop();
+    while (this.open.length && !ctx.has(this.open[this.open.length - 1].name)) this.popEl();
   }
   private clearAfeToMarker() {
     while (this.afe.length) { if (this.afe.pop() === 'marker') break; }
@@ -1115,8 +1162,8 @@ export class TreeBuilder {
       if (n === 'table') { if (!this.hasInTableScope('table')) return; this.popUntil('table'); this.resetInsertionMode(); return this.process(t); }
       /* v8 ignore stop */
       if (n === 'style' || n === 'script' || n === 'template') return this.mInHead(t);
-      if (n === 'input' && t.attrs.some(([k, v]) => k === 'type' && v.toLowerCase() === 'hidden')) { this.insertElement(t); this.open.pop(); return; }
-      if (n === 'form') { this.insertElement(t); this.open.pop(); return; }
+      if (n === 'input' && t.attrs.some(([k, v]) => k === 'type' && v.toLowerCase() === 'hidden')) { this.insertElement(t); this.popEl(); return; }
+      if (n === 'form') { this.insertElement(t); this.popEl(); return; }
       return this.fosterInBody(t);
     }
     if (t.type === 'endTag') {
@@ -1124,7 +1171,7 @@ export class TreeBuilder {
       /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
       if (n === 'table') { if (!this.hasInTableScope('table')) return; this.popUntil('table'); this.resetInsertionMode(); return; }
       /* v8 ignore stop */
-      if (['body', 'caption', 'col', 'colgroup', 'html', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr'].includes(n)) return;
+      if (INTABLE_IGNORED_END.has(n)) return;
       return this.fosterInBody(t);
     }
     if (t.type === 'eof') return this.mInBody(t);
@@ -1159,7 +1206,7 @@ export class TreeBuilder {
       this.generateImpliedEndTags(); this.popUntil('caption'); this.clearAfeToMarker(); this.mode = 'inTable';
       return this.process(t);
     }
-    if (t.type === 'endTag' && ['body', 'col', 'colgroup', 'html', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr'].includes(t.name)) return;
+    if (t.type === 'endTag' && INCAPTION_IGNORED_END.has(t.name)) return;
     return this.mInBody(t);
   }
   private mInColumnGroup(t: Token) {
@@ -1167,53 +1214,53 @@ export class TreeBuilder {
     if (t.type === 'comment') { this.insertComment(t.data); return; }
     if (t.type === 'doctype') return;
     if (t.type === 'startTag' && t.name === 'html') return this.mInBody(t);
-    if (t.type === 'startTag' && t.name === 'col') { this.insertElement(t); this.open.pop(); return; }
+    if (t.type === 'startTag' && t.name === 'col') { this.insertElement(t); this.popEl(); return; }
     if ((t.type === 'startTag' || t.type === 'endTag') && t.name === 'template') return this.mInHead(t);
-    if (t.type === 'endTag' && t.name === 'colgroup') { if (this.currentName() === 'colgroup') { this.open.pop(); this.mode = 'inTable'; } return; }
+    if (t.type === 'endTag' && t.name === 'colgroup') { if (this.currentName() === 'colgroup') { this.popEl(); this.mode = 'inTable'; } return; }
     if (t.type === 'endTag' && t.name === 'col') return;
     if (t.type === 'eof') return this.mInBody(t);
-    if (this.currentName() === 'colgroup') { this.open.pop(); this.mode = 'inTable'; return this.process(t); }
+    if (this.currentName() === 'colgroup') { this.popEl(); this.mode = 'inTable'; return this.process(t); }
   }
   private mInTableBody(t: Token) {
     if (t.type === 'startTag' && t.name === 'tr') { this.clearStackTo(TABLE_BODY_CTX); this.insertElement(t); this.mode = 'inRow'; return; }
     if (t.type === 'startTag' && (t.name === 'td' || t.name === 'th')) { this.clearStackTo(TABLE_BODY_CTX); this.insertElement({ type: 'startTag', name: 'tr', attrs: [], selfClosing: false }); this.mode = 'inRow'; return this.process(t); }
-    if (t.type === 'startTag' && ['caption', 'col', 'colgroup', 'tbody', 'tfoot', 'thead'].includes(t.name)) {
+    if (t.type === 'startTag' && INTABLEBODY_SCOPE_START.has(t.name)) {
       /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
       if (!this.anyTableBodyInScope()) return;
       /* v8 ignore stop */
-      this.clearStackTo(TABLE_BODY_CTX); this.open.pop(); this.mode = 'inTable'; return this.process(t);
+      this.clearStackTo(TABLE_BODY_CTX); this.popEl(); this.mode = 'inTable'; return this.process(t);
     }
     if (t.type === 'endTag' && (t.name === 'tbody' || t.name === 'tfoot' || t.name === 'thead')) {
       if (!this.hasInTableScope(t.name)) return;
-      this.clearStackTo(TABLE_BODY_CTX); this.open.pop(); this.mode = 'inTable'; return;
+      this.clearStackTo(TABLE_BODY_CTX); this.popEl(); this.mode = 'inTable'; return;
     }
     if (t.type === 'endTag' && t.name === 'table') {
       /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
       if (!this.anyTableBodyInScope()) return;
       /* v8 ignore stop */
-      this.clearStackTo(TABLE_BODY_CTX); this.open.pop(); this.mode = 'inTable'; return this.process(t);
+      this.clearStackTo(TABLE_BODY_CTX); this.popEl(); this.mode = 'inTable'; return this.process(t);
     }
-    if (t.type === 'endTag' && ['body', 'caption', 'col', 'colgroup', 'html', 'td', 'th', 'tr'].includes(t.name)) return;
+    if (t.type === 'endTag' && INTABLEBODY_IGNORED_END.has(t.name)) return;
     return this.mInTable(t);
   }
   private mInRow(t: Token) {
     if (t.type === 'startTag' && (t.name === 'td' || t.name === 'th')) { this.clearStackTo(TABLE_ROW_CTX); this.insertElement(t); this.mode = 'inCell'; this.afe.push('marker'); return; }
     /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
-    if (t.type === 'endTag' && t.name === 'tr') { if (!this.hasInTableScope('tr')) return; this.clearStackTo(TABLE_ROW_CTX); this.open.pop(); this.mode = 'inTableBody'; return; }
+    if (t.type === 'endTag' && t.name === 'tr') { if (!this.hasInTableScope('tr')) return; this.clearStackTo(TABLE_ROW_CTX); this.popEl(); this.mode = 'inTableBody'; return; }
     /* v8 ignore stop */
-    if ((t.type === 'startTag' && ['caption', 'col', 'colgroup', 'tbody', 'tfoot', 'thead', 'tr'].includes(t.name)) || (t.type === 'endTag' && t.name === 'table')) {
+    if ((t.type === 'startTag' && INROW_SCOPE_START.has(t.name)) || (t.type === 'endTag' && t.name === 'table')) {
       /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
       if (!this.hasInTableScope('tr')) return;
       /* v8 ignore stop */
-      this.clearStackTo(TABLE_ROW_CTX); this.open.pop(); this.mode = 'inTableBody'; return this.process(t);
+      this.clearStackTo(TABLE_ROW_CTX); this.popEl(); this.mode = 'inTableBody'; return this.process(t);
     }
     if (t.type === 'endTag' && (t.name === 'tbody' || t.name === 'tfoot' || t.name === 'thead')) {
       /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
       if (!this.hasInTableScope(t.name) || !this.hasInTableScope('tr')) return;
       /* v8 ignore stop */
-      this.clearStackTo(TABLE_ROW_CTX); this.open.pop(); this.mode = 'inTableBody'; return this.process(t);
+      this.clearStackTo(TABLE_ROW_CTX); this.popEl(); this.mode = 'inTableBody'; return this.process(t);
     }
-    if (t.type === 'endTag' && ['body', 'caption', 'col', 'colgroup', 'html', 'td', 'th'].includes(t.name)) return;
+    if (t.type === 'endTag' && INROW_IGNORED_END.has(t.name)) return;
     return this.mInTable(t);
   }
   private mInCell(t: Token) {
@@ -1228,8 +1275,8 @@ export class TreeBuilder {
       /* v8 ignore stop */
       this.closeCell(); return this.process(t);
     }
-    if (t.type === 'endTag' && ['body', 'caption', 'col', 'colgroup', 'html'].includes(t.name)) return;
-    if (t.type === 'endTag' && ['table', 'tbody', 'tfoot', 'thead', 'tr'].includes(t.name)) {
+    if (t.type === 'endTag' && INCELL_IGNORED_END.has(t.name)) return;
+    if (t.type === 'endTag' && INCELL_TABLE_END.has(t.name)) {
       if (!this.hasInTableScope(t.name)) return;
       this.closeCell(); return this.process(t);
     }
@@ -1246,9 +1293,9 @@ export class TreeBuilder {
     if (t.type === 'startTag') {
       const n = t.name;
       if (n === 'html') return this.mInBody(t);
-      if (n === 'option') { if (this.currentName() === 'option') this.open.pop(); this.insertElement(t); return; }
-      if (n === 'optgroup') { if (this.currentName() === 'option') this.open.pop(); if (this.currentName() === 'optgroup') this.open.pop(); this.insertElement(t); return; }
-      if (n === 'hr') { if (this.currentName() === 'option') this.open.pop(); if (this.currentName() === 'optgroup') this.open.pop(); this.insertElement(t); this.open.pop(); return; }
+      if (n === 'option') { if (this.currentName() === 'option') this.popEl(); this.insertElement(t); return; }
+      if (n === 'optgroup') { if (this.currentName() === 'option') this.popEl(); if (this.currentName() === 'optgroup') this.popEl(); this.insertElement(t); return; }
+      if (n === 'hr') { if (this.currentName() === 'option') this.popEl(); if (this.currentName() === 'optgroup') this.popEl(); this.insertElement(t); this.popEl(); return; }
       if (n === 'select') { if (this.hasInSelectScope('select')) { this.popUntil('select'); this.resetInsertionMode(); } return; }
       /* v8 ignore start -- unreachable in document-only parsing: defensive / fragment-context guard */
       if (n === 'input' || n === 'keygen' || n === 'textarea') { if (!this.hasInSelectScope('select')) return; this.popUntil('select'); this.resetInsertionMode(); return this.process(t); }
@@ -1260,8 +1307,8 @@ export class TreeBuilder {
     }
     if (t.type === 'endTag') {
       const n = t.name;
-      if (n === 'optgroup') { if (this.currentName() === 'option' && this.open[this.open.length - 2]?.name === 'optgroup') this.open.pop(); if (this.currentName() === 'optgroup') this.open.pop(); return; }
-      if (n === 'option') { if (this.currentName() === 'option') this.open.pop(); return; }
+      if (n === 'optgroup') { if (this.currentName() === 'option' && this.open[this.open.length - 2]?.name === 'optgroup') this.popEl(); if (this.currentName() === 'optgroup') this.popEl(); return; }
+      if (n === 'option') { if (this.currentName() === 'option') this.popEl(); return; }
       if (n === 'select') { if (!this.hasInSelectScope('select')) return; this.popUntil('select'); this.resetInsertionMode(); return; }
       if (n === 'template') return this.mInHead(t);
       return this.mInBody(t);

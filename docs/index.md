@@ -81,7 +81,7 @@ sanitizer.sanitize('<p>hi <img src=x onerror=alert(1)> <script>bad()</script></p
 Even if your allow-list permits them, the baseline **always** strips known-dangerous constructs, mirroring the browser's native `setHTML()`. An allow-list can never re-introduce them; only the explicit `sanitizeUnsafe()` opts out.
 
 ```ts
-const s = Sanitizer.builder({ tags: ['a'], attrs: { a: ['href', 'onclick'] } }).build();
+const s = Sanitizer.builder().allow('a', ['href', 'onclick']).build();
 
 s.sanitize('<a href="javascript:alert(1)" onclick="x()">click</a>');
 // → '<a>click</a>'   ← javascript: URL and on* handler stripped despite being allow-listed
