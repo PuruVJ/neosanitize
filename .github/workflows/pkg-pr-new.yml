@@ -1,0 +1,35 @@
+name: Preview Release
+
+# Publishes a preview build of every commit to pkg.pr.new, so it can be
+# installed without cutting an npm release:
+#   npm i https://pkg.pr.new/neosanitize@<sha-or-branch>
+on:
+  push:
+    branches-ignore:
+      - main
+      - changeset-release/**
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write # to comment the install link on PRs
+
+jobs:
+  preview:
+    name: Publish preview
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run build
+
+      - run: pnpx pkg-pr-new publish --pnpm './packages/neosanitize'
