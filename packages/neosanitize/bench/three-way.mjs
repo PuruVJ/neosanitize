@@ -39,7 +39,10 @@ function mainFor(scenario) {
   const o = scenario.options ?? {};
   const tags = o.allowedTags && o.allowedTags.length ? o.allowedTags : RICH_TAGS;
   const attrs = o.allowedAttributes && Object.keys(o.allowedAttributes).length ? o.allowedAttributes : RICH_ATTRS;
-  return Sanitizer.builder({ tags, attrs }).build();
+  return Sanitizer.builder((b) => {
+    b.allow(tags);
+    for (const [tag, list] of Object.entries(attrs)) b.allow(tag, list);
+  }).build();
 }
 
 const bytes = (s) => Buffer.byteLength(s, 'utf8');

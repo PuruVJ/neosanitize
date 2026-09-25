@@ -21,7 +21,7 @@
  * the policy compilation happens ONCE in the constructor so `.sanitize()` is cheap
  * to call repeatedly.
  */
-import type { ElementNode, ParentNode } from './parser/tree-builder';
+import type { ElementNode, ParentNode, TreeNode } from './parser/tree-builder';
 
 // Re-export the (runtime-free) node-shape types so entry points and advanced
 // users can build/consume the common tree without importing the parser.
@@ -81,8 +81,12 @@ const BASELINE_DROP = new Set(['script']);
 const DROP_CONTENT_WHEN_DISALLOWED = new Set(['script', 'style', 'textarea', 'option', 'xmp', 'noscript', 'noembed', 'noframes', 'iframe', 'title', 'template']);
 /** Void elements, serialized with no end tag and no children. */
 const VOID_ELEMENTS = new Set(['area', 'base', 'basefont', 'bgsound', 'br', 'col', 'command', 'embed', 'frame', 'hr', 'img', 'input', 'isindex', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr']);
-/** Raw-text elements, their text children serialize unescaped. */
-const RAW_TEXT_ELEMENTS = new Set(['script', 'style', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript', 'plaintext']);
+/** Raw-text elements, their text children serialize unescaped — ONLY valid in the
+ * HTML namespace (see the namespace gate in `emitElement`). `noscript` is
+ * intentionally excluded: with scripting disabled (this engine's model) its content
+ * is parsed as normal markup with entities decoded, never as verbatim raw text, so
+ * emitting it unescaped would re-materialize decoded markup (a baseline bypass). */
+const RAW_TEXT_ELEMENTS = new Set(['script', 'style', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext']);
 /** Attributes interpreted as URLs (for the baseline scheme check). `xlink href`
  * is the space-stored form of the foreign `xlink:href`. */
 const URL_ATTRS = new Set(['href', 'src', 'action', 'formaction', 'background', 'cite', 'longdesc', 'poster', 'data', 'srcdoc', 'manifest', 'xlink href']);
@@ -224,6 +228,9 @@ const RE_QUOTES_G = /['"]/g;
 const RE_TEXT_NEEDS = /[&<>\u00a0]/;
 const RE_ATTR_NEEDS = /[&"\u00a0]/;
 const RE_AMP_G = /&/g;
+// Bounds for the sanitizeStyle memo (see SanitizerCore.sanitizeStyle).
+const STYLE_MEMO_CAP = 512;
+const STYLE_MEMO_MAX_LEN = 256;
 const RE_LT_G = /</g;
 const RE_GT_G = />/g;
 const RE_QUOT_G = /"/g;
@@ -325,7 +332,7 @@ export class SanitizerCore {
   /** Sanitize to a string. Always applies the inviolable safe baseline. */
   sanitize(html: string): string {
     const out: string[] = [];
-    this.emitChildren(this.parse(html), out, false, null);
+    this.emitChildren(this.parse(html), out, null);
     return out.join('');
   }
 
@@ -333,7 +340,7 @@ export class SanitizerCore {
   sanitizeWithReport(html: string): SanitizeReport {
     const out: string[] = [];
     const removed: Removal[] = [];
-    this.emitChildren(this.parse(html), out, false, removed);
+    this.emitChildren(this.parse(html), out, removed);
     return { html: out.join(''), removed };
   }
 
@@ -354,7 +361,7 @@ export class SanitizerCore {
   sanitizeTo(html: string, sink: SanitizeSink, opts?: SanitizeToOptions): void {
     const write = typeof sink === 'function' ? sink : (c: string) => { sink.write(c); };
     const writer = new ChunkWriter(write, opts?.chunkSize ?? 16384);
-    this.emitChildren(this.parse(html), writer, false, null);
+    this.emitChildren(this.parse(html), writer, null);
     writer.flush();
   }
 
@@ -484,41 +491,61 @@ export class SanitizerCore {
   }
 
   // --- string serializer ----------------------------------------------------
-  private emitChildren(parent: ParentNode, out: StringSink, rawText: boolean, removed: Removal[] | null): void {
-    // Index loop, not for-of: this runs once per parent element on the serialize
-    // hot path, and a for-of iterator object per call shows up under the profiler.
-    const children = parent.children;
-    for (let k = 0; k < children.length; k++) {
-      const child = children[k];
-      if (child.type === 'text') out.push(rawText ? child.value : SanitizerCore.escapeText(child.value));
-      else if (child.type === 'element') this.emitElement(child, out, removed);
-      // comments and doctype are dropped (output is a clean fragment)
-    }
-  }
-  private emitElement(el: ElementNode, out: StringSink, removed: Removal[] | null): void {
-    const info = this.tagInfo(el.name);
-    if (info === null) {
-      const action = this.elementAction(el);
-      if (action === 'drop') { removed?.push({ kind: 'tag', name: el.name, reason: 'unsafe-element' }); return; }
-      // html/head/body are implicit document structure, not user-content removals
-      if (removed && el.name !== 'html' && el.name !== 'head' && el.name !== 'body') {
-        removed.push({ kind: 'tag', name: el.name, reason: 'not-allowed' });
+  // Iterative, explicit-stack walk. Recursion here was a stack-overflow DoS: the
+  // tree builder is iterative, but a recursive serializer blows the native stack on
+  // deeply nested input (`<div>`×N), a shallow ~20 KB payload reachable with the
+  // default config. The stack holds either a TreeNode to process or a pre-built
+  // close-tag string; children are pushed in reverse so they emit in document order,
+  // ahead of the close tag pushed before them. Byte-identical to the old recursion.
+  private emitChildren(parent: ParentNode, out: StringSink, removed: Removal[] | null): void {
+    const stack: Array<TreeNode | string> = [];
+    const roots = parent.children;
+    for (let k = roots.length - 1; k >= 0; k--) stack.push(roots[k]);
+    while (stack.length !== 0) {
+      const item = stack.pop()!;
+      if (typeof item === 'string') { out.push(item); continue } // close tag
+      if (item.type === 'text') { out.push(SanitizerCore.escapeText(item.value)); continue }
+      if (item.type !== 'element') continue; // comments/doctype dropped
+      const el = item;
+      const info = this.tagInfo(el.name);
+      if (info === null) {
+        const action = this.elementAction(el);
+        if (action === 'drop') { removed?.push({ kind: 'tag', name: el.name, reason: 'unsafe-element' }); continue; }
+        // html/head/body are implicit document structure, not user-content removals
+        if (removed && el.name !== 'html' && el.name !== 'head' && el.name !== 'body') {
+          removed.push({ kind: 'tag', name: el.name, reason: 'not-allowed' });
+        }
+        const kids = el.children; // unwrap: process children in place, no wrapper tag
+        for (let k = kids.length - 1; k >= 0; k--) stack.push(kids[k]);
+        continue;
       }
-      this.emitChildren(el, out, false, removed);
-      return;
-    }
-    out.push(info.open);
-    if (el.attrs.length !== 0) {
-      const attrs = this.filterAttrs(el, removed, info.attrSet, info.allowAll);
-      for (let k = 0; k < attrs.length; k++) {
-        const a = attrs[k];
-        out.push(' ' + SanitizerCore.serializeAttrName(a[0]) + '="' + SanitizerCore.escapeAttr(a[1]) + '"');
+      out.push(info.open);
+      if (el.attrs.length !== 0) {
+        const attrs = this.filterAttrs(el, removed, info.attrSet, info.allowAll);
+        for (let k = 0; k < attrs.length; k++) {
+          const a = attrs[k];
+          out.push(' ' + SanitizerCore.serializeAttrName(a[0]) + '="' + SanitizerCore.escapeAttr(a[1]) + '"');
+        }
       }
+      out.push('>');
+      if (info.isVoid) continue;
+      // SECURITY: raw-text (unescaped) emission is only correct for HTML-namespace
+      // raw-text elements, whose text the tokenizer captured VERBATIM (rawtext state,
+      // so it cannot contain the closing tag or decoded markup). The SAME tag name in
+      // a foreign (SVG/MathML) subtree is parsed in the data state — its "text" has
+      // decoded entities (e.g. `&lt;script&gt;` → `<script>`), so emitting it raw would
+      // re-materialize live markup that never passed the policy (a baseline bypass).
+      // Rawtext elements contain only a verbatim text run, so emit inline + close now.
+      if (info.rawText && el.namespace === 'html') {
+        const kids = el.children;
+        for (let k = 0; k < kids.length; k++) { const c = kids[k]; if (c.type === 'text') out.push(c.value); }
+        out.push(info.close);
+        continue;
+      }
+      stack.push(info.close); // close tag emitted after this element's children
+      const kids = el.children;
+      for (let k = kids.length - 1; k >= 0; k--) stack.push(kids[k]);
     }
-    out.push('>');
-    if (info.isVoid) return;
-    this.emitChildren(el, out, info.rawText, removed);
-    out.push(info.close);
   }
 
   private static attrUnsafe(name: string, value: string): boolean {
@@ -546,9 +573,12 @@ export class SanitizerCore {
       }
     }
     if (clean) {
-      const scheme = value.slice(0, colon).toLowerCase();
-      if (scheme === 'javascript' || scheme === 'vbscript') return true;
-      if (scheme === 'data') return value.slice(0, 11).toLowerCase() !== 'data:image/';
+      // Only javascript/vbscript/data are special — match by length + ASCII
+      // case-insensitive compare, no `slice().toLowerCase()` allocation per URL.
+      // (The clean scan above proved these bytes are ASCII [A-Za-z0-9+.-].)
+      if (colon === 10) { if (SanitizerCore.schemeEq(value, 'javascript')) return true; }
+      else if (colon === 8) { if (SanitizerCore.schemeEq(value, 'vbscript')) return true; }
+      else if (colon === 4 && SanitizerCore.schemeEq(value, 'data')) return SanitizerCore.dangerousDataUrl(value);
       return false; // http/https/mailto/tel/ftp/blob/... are fine
     }
 
@@ -563,7 +593,7 @@ export class SanitizerCore {
     }
     if (scheme !== null) {
       if (scheme === 'javascript' || scheme === 'vbscript') return true;
-      if (scheme === 'data') return !value.trim().toLowerCase().startsWith('data:image/');
+      if (scheme === 'data') return SanitizerCore.dangerousDataUrl(value.trim());
       return false; // http/https/mailto/tel/ftp/... are fine
     }
     // `new URL()` rejected the value outright → it is not a parseable absolute URL,
@@ -572,8 +602,47 @@ export class SanitizerCore {
     // resolved above; nothing dangerous reaches here.)
     return false;
   }
+  /** A `data:` URL is safe ONLY when it carries a RASTER image type. `image/svg+xml`
+   * is rejected: an SVG document rendered from a `data:` URL in a document context
+   * (`<iframe src>`, `<object data>`, `<embed src>`, SVG `<use href>`) executes its
+   * script/`on*` handlers. Since the URL check can't see the sink tag, and DOMPurify
+   * likewise forbids SVG data URIs by default, we deny svg+xml across all URL attrs.
+   * (An `<img src="data:image/svg+xml">` is inert, but blocking it is the safe call.) */
+  /** `value`'s first `lit.length` chars equal the lowercase ASCII literal `lit`,
+   * case-insensitively. Caller guarantees those bytes are ASCII. Avoids the
+   * per-URL `slice().toLowerCase()` allocation on the hot scheme-check path. */
+  private static schemeEq(value: string, lit: string): boolean {
+    for (let i = 0; i < lit.length; i++) {
+      if ((value.charCodeAt(i) | 0x20) !== lit.charCodeAt(i)) return false;
+    }
+    return true;
+  }
+  private static dangerousDataUrl(value: string): boolean {
+    const lower = value.slice(0, 20).toLowerCase();
+    if (!lower.startsWith('data:image/')) return true; // non-image data: → dangerous
+    // reject data:image/svg and data:image/svg+xml (script-bearing document format)
+    return lower.startsWith('data:image/svg');
+  }
   // --- CSS safe-subset for the `style` attribute --------------------------
+  /** `sanitizeStyle` is a PURE function of the value string, and real documents
+   * repeat style attributes heavily (every `<td style="text-align:right">` in a
+   * table, every themed card in a feed). Memoize the result, bounded so a hostile
+   * stream of unique/oversized values can't grow it without limit. */
+  private static readonly styleMemo = new Map<string, string>();
   private static sanitizeStyle(value: string): string {
+    const memo = SanitizerCore.styleMemo;
+    const hit = memo.get(value);
+    if (hit !== undefined) return hit;
+    const result = SanitizerCore.computeSanitizeStyle(value);
+    // Don't retain attacker-sized values; cap the table size (FIFO-ish: clear when
+    // full — cheap, and the hot working set re-warms immediately).
+    if (value.length <= STYLE_MEMO_MAX_LEN) {
+      if (memo.size >= STYLE_MEMO_CAP) memo.clear();
+      memo.set(value, result);
+    }
+    return result;
+  }
+  private static computeSanitizeStyle(value: string): string {
     const out: string[] = [];
     for (const decl of SanitizerCore.splitDeclarations(value)) {
       const colon = decl.indexOf(':');
