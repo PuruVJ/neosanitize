@@ -45,6 +45,25 @@ The modern engine went through a dedicated optimization pass driven by profiling
 - **Allocation cuts**, attribute lists are taken from the tokenizer directly (no redundant de-dup copy), attribute filtering returns the original array when nothing changes, transient token objects are reused, and the serializer walks children with index loops (no per-element iterator).
 - **Compile-once policy**, the allow-list resolves into fast lookup structures in the `Sanitizer` constructor, reused across every call.
 
+## Counting work (for PRs)
+
+The numbers above are timings: they answer "how fast is it, and how does it compare with `sanitize-html`". They move by a few percent from run to run, so they cannot tell you whether a PR made the tokenizer 2% slower.
+
+For that, the repository also counts the work each function does with [Heisenbench](https://www.npmjs.com/package/heisenbench). It runs the TypeScript source in `packages/neosanitize/src` with every function rewritten to count its own operations (property reads, compares, calls, allocations). The count is exact and the same on every run, so one run of a PR and one of its base are enough, and a change is reported on the line that caused it.
+
+```bash
+pnpm bench:count    # needs Node 26.4 or newer; writes packages/neosanitize/bench/heisenbench.json
+```
+
+- The cases are in `packages/neosanitize/bench/*.bench.ts`: the 13 scenarios of `fixtures.mjs` on the legacy engine (as in `pnpm bench`) and on the main engine with the policy of `pnpm bench:3way`, the five document shapes of `pnpm bench:scale` at 64 KB, the `parse5` and `htmlparser2` adapters (as in `pnpm bench:adapters`), building a policy, and the `ugc` preset.
+- `--deps all` counts the work inside `parse5`, `htmlparser2` and `entities` too, so the adapter cases compare whole parsers.
+- `bench/resolve.ts` lets the source's extensionless imports (`./core`) load the `.ts` files.
+- `pnpm --filter neosanitize run bench:growth` counts the main-engine cases at 1×, 10× and 100× their input and names the curve: every one is linear. The legacy cases are left out on purpose: they read quadratic, but that is the counter, not the code. It prices each `result += …` by the whole string's length, while V8 appends without copying. Timed, legacy is linear (`blog-post` at 64× its size takes 44× as long).
+- Every PR gets a comment from [`.github/workflows/heisenbench.yml`](https://github.com/PuruVJ/neosanitize/blob/main/.github/workflows/heisenbench.yml): each function whose count changed and the lines where it changed, then the PR's own counts (`bench/summary.ts`): the heaviest cases, the function and line that do the most work in each, and the growth class.
+- To compare two commits by hand, count each one, then run `pnpm exec heisenbench diff base.json pr.json --repo ../..` in `packages/neosanitize`.
+
+Counts are not time: the engine can make some operations nearly free, and `sanitize-html` (CommonJS) is not counted at all. Use the timed benches for speed and for the comparison with `sanitize-html`, and the counts to see what a change does to the work.
+
 ## Bundle size
 
 | Build | Min+gzip | Min+brotli | Notes |

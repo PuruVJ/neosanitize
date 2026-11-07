@@ -249,6 +249,7 @@ pnpm test        # build + full suite
 pnpm typecheck
 pnpm bench       # legacy vs sanitize-html
 pnpm bench:3way  # original vs legacy vs main
+pnpm bench:count # count the work each function does (Heisenbench, Node 26.4+)
 ```
 
 ---

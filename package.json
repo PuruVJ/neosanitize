@@ -7,6 +7,7 @@
 		"build": "pnpm --filter neosanitize run build",
 		"test": "pnpm --filter neosanitize run test",
 		"typecheck": "pnpm --filter neosanitize run typecheck",
+		"bench:count": "pnpm --filter neosanitize run bench:count",
 		"changeset": "changeset",
 		"version": "changeset version",
 		"release": "changeset publish",
