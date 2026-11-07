@@ -38,7 +38,7 @@ const base = process.argv[3] ? read(process.argv[3]) : null;
 const growth = new Map((report.growth?.cases ?? []).map((g) => [g.name, g]));
 const n = (x: number) => Math.round(x).toLocaleString('en-US');
 const pct = (part: number, whole: number) => (whole > 0 ? `${Math.round((part / whole) * 100)}%` : '');
-const cell = (s: string) => s.replace(/\|/g, '\\|');
+const cell = (s: string) => s.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 
 function heaviest(c: Case) {
   let fn: Fn | null = null;
