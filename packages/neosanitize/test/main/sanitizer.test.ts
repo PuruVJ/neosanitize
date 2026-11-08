@@ -66,6 +66,13 @@ describe('Sanitizer — inviolable baseline (holds even when allow-listed)', () 
     expect(permissive.sanitizeUnsafe('<b onclick="e()">x</b>')).toBe('<b onclick="e()">x</b>');
     expect(permissive.sanitizeUnsafe('<script>alert(1)</script>')).toBe('<script>alert(1)</script>');
   });
+  it('sanitizeUnsafe() reuses one compiled copy and leaves sanitize() untouched', () => {
+    const s = Sanitizer.builder((b) => b.allow(['b', 'a'], '*')).build();
+    expect(s.sanitizeUnsafe('<b onclick="e()">x</b>')).toBe('<b onclick="e()">x</b>');
+    expect(s.sanitizeUnsafe('<a href="javascript:x">y</a>')).toBe('<a href="javascript:x">y</a>');
+    expect(s.sanitize('<b onclick="e()">x</b>')).toBe('<b>x</b>');
+    expect(s.sanitizeUnsafe('<b onclick="e()">x</b>')).toBe('<b onclick="e()">x</b>');
+  });
 });
 
 describe('Sanitizer — mXSS / XSS vector corpus', () => {
