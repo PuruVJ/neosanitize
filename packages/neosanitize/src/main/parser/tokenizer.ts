@@ -1193,6 +1193,8 @@ export class Tokenizer {
     this.state = this.returnState;
   }
 
+  /** The named character reference state: reads at most MAX_NAMED_REF_LEN chars.
+   * @heisenbench constant */
   private namedCharRefState(): boolean {
     // Greedy longest match via the trie, walking code unit by code unit (no
     // growing-string rebuild/re-hash). matchLen/matchValue track the longest hit.
