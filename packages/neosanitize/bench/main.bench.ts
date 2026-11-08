@@ -84,6 +84,21 @@ bench('main · scale deeply-nested (250 levels)', ({ san, html }) => san.sanitiz
   scale: (ctx, factor) => ({ san: ctx.san, html: nested(250 * factor) }),
 });
 
+// The other ways out of the same pipeline: a removal report, a chunked sink, plain text.
+const blog_html = () => scenarios.find((s: any) => s.name === 'blog-post').html as string;
+bench('main · sanitizeWithReport on blog-post', ({ san, html }) => san.sanitizeWithReport(html), {
+  setup: () => ({ san: main_for({}), html: blog_html() }),
+  scale: (ctx, factor) => ({ san: ctx.san, html: blog_html().repeat(factor) }),
+});
+bench('main · sanitizeTo on blog-post', ({ san, html }) => { let n = 0; san.sanitizeTo(html, (c) => { n += c.length; }, { chunkSize: 1024 }); return n; }, {
+  setup: () => ({ san: main_for({}), html: blog_html() }),
+  scale: (ctx, factor) => ({ san: ctx.san, html: blog_html().repeat(factor) }),
+});
+bench('main · sanitizeToText on blog-post', ({ san, html }) => san.sanitizeToText(html), {
+  setup: () => ({ san: main_for({}), html: blog_html() }),
+  scale: (ctx, factor) => ({ san: ctx.san, html: blog_html().repeat(factor) }),
+});
+
 bench('main · build the rich policy', () => main_for({}));
 // One sanitizer, many short inputs: what a per-comment `sanitizeUnsafe` loop costs.
 bench('main · sanitizeUnsafe on 20 comments', ({ san, items }) => { for (const html of items) san.sanitizeUnsafe(html); }, {
