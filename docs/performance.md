@@ -56,13 +56,12 @@ pnpm bench:count    # needs Node 26.4 or newer; writes packages/neosanitize/benc
 ```
 
 - The cases are in `packages/neosanitize/bench/*.bench.ts`: the 13 scenarios of `fixtures.mjs` on the legacy engine (as in `pnpm bench`) and on the main engine with the policy of `pnpm bench:3way`, the five document shapes of `pnpm bench:scale` at 64 KB, the `parse5` and `htmlparser2` adapters (as in `pnpm bench:adapters`), building a policy, and the `ugc` preset.
-- `--deps all` counts the work inside `parse5`, `htmlparser2` and `entities` too, so the adapter cases compare whole parsers.
-- `bench/resolve.ts` lets the source's extensionless imports (`./core`) load the `.ts` files.
-- `pnpm --filter neosanitize run bench:growth` counts the main-engine cases at 1×, 10× and 100× their input and names the curve: every one is linear. The legacy cases are left out on purpose: they read quadratic, but that is the counter, not the code. It prices each `result += …` by the whole string's length, while V8 appends without copying. Timed, legacy is linear (`blog-post` at 64× its size takes 44× as long).
-- Every PR gets a comment from [`.github/workflows/heisenbench.yml`](https://github.com/PuruVJ/neosanitize/blob/main/.github/workflows/heisenbench.yml): each function whose count changed and the lines where it changed, then the PR's own counts (`bench/summary.ts`): the heaviest cases, the function and line that do the most work in each, and the growth class.
+- Heisenbench counts the work inside `parse5`, `htmlparser2` and `entities` too, so the adapter cases compare whole parsers.
+- `pnpm --filter neosanitize run bench:growth` counts the main-engine cases at 1×, 10× and 100× their input and names the curve: every one is linear. The legacy cases are left out: they have no `scale`, so the generic scaler grows their policy along with the HTML: ten read linear, and three (`attribute-filtering`, `style-filtering`, `big-table`) read quadratic in the functions that walk the policy for each tag. Timed, legacy is linear (`blog-post` at 64× its size takes 44× as long).
+- Every PR gets a comment from [`.github/workflows/heisenbench.yml`](https://github.com/PuruVJ/neosanitize/blob/main/.github/workflows/heisenbench.yml): each function whose count changed and the lines where it changed. When no function changed, it shows the PR's own counts instead: the heaviest cases, the function and line that do the most work in each, and the growth class. When the base has no bench files or another Heisenbench version, the base's code is counted with the PR's Heisenbench (`--source-from`).
 - To compare two commits by hand, count each one, then run `pnpm exec heisenbench diff base.json pr.json --repo ../..` in `packages/neosanitize`.
 
-Counts are not time: the engine can make some operations nearly free, and `sanitize-html` (CommonJS) is not counted at all. Use the timed benches for speed and for the comparison with `sanitize-html`, and the counts to see what a change does to the work.
+Counts are not time: the engine can make some operations nearly free, and `sanitize-html` has no counted case. Use the timed benches for speed and for the comparison with `sanitize-html`, and the counts to see what a change does to the work.
 
 ## Bundle size
 
