@@ -29,4 +29,12 @@ describe('tokenizer — rare paths', () => {
     expect(dt?.publicId).toBe('p�q');
     expect(dt?.systemId).toBe('s�t');
   });
+
+  it('ends a text or attribute-value run at a NUL, and decodes a reference right after a run', () => {
+    const toks = new Tokenizer('a' + NUL + 'b x&amp;y&#65;z<p t="q' + NUL + 'r&lt;" u=\'s' + NUL + 't&gt;\' v=w&amp;>', {}).tokenize();
+    const text = toks.filter((t) => t.type === 'character').map((t) => (t as { data: string }).data).join('');
+    expect(text).toBe('a' + NUL + 'b x&yAz');
+    const p = toks.find((t) => t.type === 'startTag') as { attrs: Array<[string, string]> };
+    expect(p.attrs).toEqual([['t', 'q�r<'], ['u', 's�t>'], ['v', 'w&']]);
+  });
 });
