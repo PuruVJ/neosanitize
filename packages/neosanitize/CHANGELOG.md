@@ -1,5 +1,13 @@
 # neosanitize
 
+## 0.5.1
+
+### Patch Changes
+
+- [#14](https://github.com/PuruVJ/neosanitize/pull/14) [`55d527c`](https://github.com/PuruVJ/neosanitize/commit/55d527c68dbf0199035d120346b19efeec97c204) Thanks [@PuruVJ](https://github.com/PuruVJ)! - neosanitize: text and attributes full of entities like `&amp;` and `&[#65](https://github.com/PuruVJ/neosanitize/issues/65);` sanitize faster.
+
+- [#14](https://github.com/PuruVJ/neosanitize/pull/14) [`55d527c`](https://github.com/PuruVJ/neosanitize/commit/55d527c68dbf0199035d120346b19efeec97c204) Thanks [@PuruVJ](https://github.com/PuruVJ)! - neosanitize: `sanitizeUnsafe()` builds its policy once per sanitizer instead of on every call, so calling it many times on short inputs is several times faster.
+
 ## 0.5.0
 
 ### Minor Changes
