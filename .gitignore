@@ -11,5 +11,8 @@ coverage/
 docs/.vitepress/dist
 docs/.vitepress/cache
 
+# Heisenbench step counts (`pnpm bench:count`)
+packages/neosanitize/bench/heisenbench.json
+
 # generated root entry stubs (shipped via package.json `files`, not committed)
 packages/neosanitize/legacy.*
