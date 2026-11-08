@@ -76,7 +76,22 @@ for (const shape of Object.keys(SHAPES)) {
   });
 }
 
+// Nesting depth grows with the input: any per-level scan of the open-element stack
+// shows here as a curve steeper than linear.
+const nested = (depth: number) => '<div class="wrap">'.repeat(depth) + '<p>deep content</p>' + '</div>'.repeat(depth);
+bench('main · scale deeply-nested (250 levels)', ({ san, html }) => san.sanitize(html), {
+  setup: () => ({ san: main_for({}), html: nested(250) }),
+  scale: (ctx, factor) => ({ san: ctx.san, html: nested(250 * factor) }),
+});
+
 bench('main · build the rich policy', () => main_for({}));
+// One sanitizer, many short inputs: what a per-comment `sanitizeUnsafe` loop costs.
+bench('main · sanitizeUnsafe on 20 comments', ({ san, items }) => { for (const html of items) san.sanitizeUnsafe(html); }, {
+  setup: () => ({
+    san: main_for({}),
+    items: Array.from({ length: 20 }, (_, i) => `<p>Comment ${i} with <b onclick="x()">bold</b> &amp; <a href="/u/${i}">a link</a></p>`),
+  }),
+});
 bench('main · ugc preset on blog-post', ({ san, html }) => san.sanitize(html), {
   setup: () => ({
     san: Sanitizer.builder(ugc).build(),
