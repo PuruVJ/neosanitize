@@ -512,12 +512,16 @@ export class Tokenizer {
           const input = this.input, len = this.len; let j = this.i + 1;
           while (j < len) { const cc = input.charCodeAt(j); if (cc === 0x26 || cc === 0x3c || cc === 0) break; j++; }
           this.charBuf += this.take(this.i, j); this.i = j;
-          if (j < len && input.charCodeAt(j) === 0x3c) this.tagOpenAt(j);
+          if (j < len) {
+            const t = input.charCodeAt(j);
+            if (t === 0x3c) this.tagOpenAt(j);
+            else if (t === 0x26) { this.i = j + 1; this.returnState = S.Data; this.charRef(); }
+          }
           continue;
         }
         if (c === 0x3c) { this.tagOpenAt(this.i); continue; }
         this.i++;
-        if (c === 0x26) { this.returnState = S.Data; this.state = S.CharRef; }
+        if (c === 0x26) { this.returnState = S.Data; this.charRef(); }
         else this.emitChar(this.input[this.i - 1]); // c === 0 -> emit U+0000
         continue;
       }
@@ -527,10 +531,12 @@ export class Tokenizer {
         if (c !== 0x26 && c !== 0x3c && c !== 0) {
           const input = this.input, len = this.len; let j = this.i + 1;
           while (j < len) { const cc = input.charCodeAt(j); if (cc === 0x26 || cc === 0x3c || cc === 0) break; j++; }
-          this.charBuf += this.take(this.i, j); this.i = j; continue;
+          this.charBuf += this.take(this.i, j); this.i = j;
+          if (j < len && input.charCodeAt(j) === 0x26) { this.i = j + 1; this.returnState = S.RCDATA; this.charRef(); }
+          continue;
         }
         this.i++;
-        if (c === 0x26) { this.returnState = S.RCDATA; this.state = S.CharRef; }
+        if (c === 0x26) { this.returnState = S.RCDATA; this.charRef(); }
         else if (c === 0x3c) this.state = S.RCDATALt;
         else this.emitChar(REPLACEMENT); // c === 0
         continue;
@@ -809,12 +815,16 @@ export class Tokenizer {
           const input = this.input, len = this.len; let j = this.i + 1;
           while (j < len) { const cc = input.charCodeAt(j); if (cc === 0x22 || cc === 0x26 || cc === 0) break; j++; }
           this.attrValue += this.take(this.i, j); this.i = j;
-          if (j < len && input.charCodeAt(j) === 0x22) this.afterQuotedValue(j + 1);
+          if (j < len) {
+            const t = input.charCodeAt(j);
+            if (t === 0x22) this.afterQuotedValue(j + 1);
+            else if (t === 0x26) { this.i = j + 1; this.returnState = S.AttrValueDq; this.charRef(); }
+          }
           continue;
         }
         if (c === 0x22) { this.afterQuotedValue(this.i + 1); continue; }
         this.i++;
-        if (c === 0x26) { this.returnState = S.AttrValueDq; this.state = S.CharRef; }
+        if (c === 0x26) { this.returnState = S.AttrValueDq; this.charRef(); }
         else this.attrValue += REPLACEMENT; // c === 0
         continue;
       }
@@ -824,12 +834,16 @@ export class Tokenizer {
           const input = this.input, len = this.len; let j = this.i + 1;
           while (j < len) { const cc = input.charCodeAt(j); if (cc === 0x27 || cc === 0x26 || cc === 0) break; j++; }
           this.attrValue += this.take(this.i, j); this.i = j;
-          if (j < len && input.charCodeAt(j) === 0x27) this.afterQuotedValue(j + 1);
+          if (j < len) {
+            const t = input.charCodeAt(j);
+            if (t === 0x27) this.afterQuotedValue(j + 1);
+            else if (t === 0x26) { this.i = j + 1; this.returnState = S.AttrValueSq; this.charRef(); }
+          }
           continue;
         }
         if (c === 0x27) { this.afterQuotedValue(this.i + 1); continue; }
         this.i++;
-        if (c === 0x26) { this.returnState = S.AttrValueSq; this.state = S.CharRef; }
+        if (c === 0x26) { this.returnState = S.AttrValueSq; this.charRef(); }
         else this.attrValue += REPLACEMENT; // c === 0
         continue;
       }
@@ -838,11 +852,13 @@ export class Tokenizer {
         if (!isWs(c) && c !== 0x26 && c !== 0x3e && c !== 0) {
           const input = this.input, len = this.len; let j = this.i + 1;
           while (j < len) { const cc = input.charCodeAt(j); if (cc === 0x09 || cc === 0x0a || cc === 0x0c || cc === 0x20 || cc === 0x0d || cc === 0x26 || cc === 0x3e || cc === 0) break; j++; }
-          this.attrValue += this.take(this.i, j); this.i = j; continue;
+          this.attrValue += this.take(this.i, j); this.i = j;
+          if (j < len && input.charCodeAt(j) === 0x26) { this.i = j + 1; this.returnState = S.AttrValueUq; this.charRef(); }
+          continue;
         }
         this.i++;
         if (isWs(c)) this.state = S.BeforeAttrName;
-        else if (c === 0x26) { this.returnState = S.AttrValueUq; this.state = S.CharRef; }
+        else if (c === 0x26) { this.returnState = S.AttrValueUq; this.charRef(); }
         else if (c === 0x3e) { this.state = S.Data; this.emitTag(); }
         else this.attrValue += REPLACEMENT; // c === 0
         continue;
@@ -1043,28 +1059,12 @@ export class Tokenizer {
         this.emitChar(']]'); { this.state = S.CdataSection; continue; }
 
       // Character references -------------------------------------------------
+      /* v8 ignore start -- unreachable: the five states that see '&' run charRef() inline */
       case 53 /* S.CharRef */:
-        this.tempBuf = '&';
-        if (!eof && isAsciiAlnum(c)) { this.state = S.NamedCharRef; continue; }
-        if (!eof && c === 0x23) {
-          // Fast path: `&#123;` / `&#x7B;` with at least one digit is scanned inline
-          // (one loop iteration instead of one per digit); a digit-less `&#`/`&#x`
-          // falls back to the spec states below (they flush the literal text).
-          let j = this.i + 1, code = 0, hex = false;
-          if (j < this.len) { const x = input.charCodeAt(j); if (x === 0x78 || x === 0x58) { hex = true; j++; } }
-          const d0 = j;
-          if (hex) { for (; j < len; j++) { const d = input.charCodeAt(j); if (d >= 0x30 && d <= 0x39) code = code * 16 + (d - 0x30); else if ((d | 0x20) >= 0x61 && (d | 0x20) <= 0x66) code = code * 16 + ((d | 0x20) - 0x61 + 10); else break; } }
-          else { for (; j < len; j++) { const d = input.charCodeAt(j); if (d >= 0x30 && d <= 0x39) code = code * 10 + (d - 0x30); else break; } }
-          if (j > d0) {
-            if (j < len && input.charCodeAt(j) === 0x3b) j++;
-            this.i = j; this.charRefCode = code; this.state = S.NumericEnd; continue;
-          }
-          this.i++; this.tempBuf += '#'; this.state = S.NumericCharRef; continue;
-        }
-        this.flushTempToCharRefTarget();
-        { this.state = this.returnState; continue; }
+        this.charRef(); continue;
       case 54 /* S.NamedCharRef */:
         this.namedCharRefState(); continue;
+      /* v8 ignore stop */
       case 55 /* S.AmbiguousAmp */:
         if (!eof && isAsciiAlnum(c)) { this.i++; this.appendCharRef(this.input[this.i - 1]); continue; }
         { this.state = this.returnState; continue; }
@@ -1073,7 +1073,7 @@ export class Tokenizer {
         if (!eof && (c === 0x78 || c === 0x58)) { this.i++; this.tempBuf += this.input[this.i - 1]; this.state = S.HexStart; }
         else this.state = S.DecStart;
         continue;
-      // HexStart/DecStart are only entered when CharRef's inline numeric scan found NO
+      // HexStart/DecStart are only entered when charRef()'s inline numeric scan found NO
       // digit (it consumes every digit itself), so the digit branches and the
       // HexRef/DecRef states below are kept for spec-shape but never run.
       case 57 /* S.HexStart */:
@@ -1102,17 +1102,10 @@ export class Tokenizer {
         if (!eof && c === 0x3b) this.i++;
         this.state = S.NumericEnd;
         continue;
+      // Entered only from the unreachable HexRef/DecRef above: charRef() runs it inline.
+      case 61 /* S.NumericEnd */:
+        this.numericEnd(); continue;
       /* v8 ignore stop */
-      case 61 /* S.NumericEnd */: {
-        // Does NOT consume: process the accumulated code and switch to the return
-        // state; the next loop iteration reads the next char fresh.
-        let code = this.charRefCode;
-        if (code === 0 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) code = 0xfffd;
-        else if (C1[code] !== undefined) code = C1[code];
-        this.appendCharRef(String.fromCodePoint(code));
-        this.state = this.returnState;
-        continue;
-      }
 
       /* v8 ignore next 2 -- unreachable: every state id 0..75 has a case above */
       default:
@@ -1161,6 +1154,47 @@ export class Tokenizer {
     return this.returnState === S.AttrValueDq || this.returnState === S.AttrValueSq || this.returnState === S.AttrValueUq;
   }
 
+  /** The character reference state, run inline by the five states that consume a
+   * '&' (`returnState` set, `i` just past the '&'), instead of switching to CharRef
+   * and NamedCharRef / NumericEnd and dispatching each through `run()`. Same
+   * transitions as those states: nothing is emitted in between, so no token can be
+   * queued and none of them is a CR-copy state. Ends in the return state, or in a
+   * state that reconsumes the current char (AmbiguousAmp, NumericCharRef). */
+  private charRef(): void {
+    const input = this.input, len = this.len, i = this.i;
+    const c = i < len ? input.charCodeAt(i) : -1;
+    this.tempBuf = '&';
+    if ((c >= 0x61 && c <= 0x7a) || (c >= 0x41 && c <= 0x5a) || (c >= 0x30 && c <= 0x39)) { this.namedCharRefState(); return; }
+    if (c === 0x23) {
+      // Fast path: `&#123;` / `&#x7B;` with at least one digit is scanned inline
+      // (one loop iteration instead of one per digit); a digit-less `&#`/`&#x`
+      // falls back to the spec states below (they flush the literal text).
+      let j = i + 1, code = 0, hex = false;
+      if (j < len) { const x = input.charCodeAt(j); if (x === 0x78 || x === 0x58) { hex = true; j++; } }
+      const d0 = j;
+      if (hex) { for (; j < len; j++) { const d = input.charCodeAt(j); if (d >= 0x30 && d <= 0x39) code = code * 16 + (d - 0x30); else if ((d | 0x20) >= 0x61 && (d | 0x20) <= 0x66) code = code * 16 + ((d | 0x20) - 0x61 + 10); else break; } }
+      else { for (; j < len; j++) { const d = input.charCodeAt(j); if (d >= 0x30 && d <= 0x39) code = code * 10 + (d - 0x30); else break; } }
+      if (j > d0) {
+        if (j < len && input.charCodeAt(j) === 0x3b) j++;
+        this.i = j; this.charRefCode = code; this.numericEnd(); return;
+      }
+      this.i = i + 1; this.tempBuf += '#'; this.state = S.NumericCharRef; return;
+    }
+    this.flushTempToCharRefTarget();
+    this.state = this.returnState;
+  }
+  /** The numeric character reference end state: does NOT consume; it turns the
+   * accumulated code into its character and switches to the return state. */
+  private numericEnd(): void {
+    let code = this.charRefCode;
+    if (code === 0 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) code = 0xfffd;
+    else if (C1[code] !== undefined) code = C1[code];
+    this.appendCharRef(String.fromCodePoint(code));
+    this.state = this.returnState;
+  }
+
+  /** The named character reference state: reads at most MAX_NAMED_REF_LEN chars.
+   * @heisenbench constant */
   private namedCharRefState(): boolean {
     // Greedy longest match via the trie, walking code unit by code unit (no
     // growing-string rebuild/re-hash). matchLen/matchValue track the longest hit.
@@ -1169,7 +1203,11 @@ export class Tokenizer {
     {
       let j = start, h = 0x811c9dc5 | 0;
       const lim = Math.min(len, start + MAX_NAMED_REF_LEN);
-      while (j < lim) { const cc = input.charCodeAt(j); if (!isAsciiAlnum(cc)) break; h = Math.imul(h ^ cc, FNV); j++; }
+      while (j < lim) {
+        const cc = input.charCodeAt(j);
+        if (!((cc >= 0x61 && cc <= 0x7a) || (cc >= 0x41 && cc <= 0x5a) || (cc >= 0x30 && cc <= 0x39))) break;
+        h = Math.imul(h ^ cc, FNV); j++;
+      }
       if (j < len && input.charCodeAt(j) === 0x3b) {
         h = Math.imul(h ^ 0x3b, FNV);
         const n = j + 1 - start;

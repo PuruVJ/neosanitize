@@ -898,10 +898,18 @@ export class SanitizerCore {
   /** Escape hatch: skip the inviolable baseline (mirrors `setHTMLUnsafe`). */
   sanitizeUnsafe(html: string): string {
     // Re-parse with the SAME concrete entry (this.constructor) and the same parser,
-    // matchers, and hook, baseline off, so behaviour is otherwise identical.
-    const Ctor = this.constructor as new (policy?: Policy, opts?: SanitizerOptions) => SanitizerCore;
-    return new Ctor({ ...this.policy, allowUnsafe: true }, { parser: this.parserOverride, matchers: this.matchers, attrHook: this.attrHook }).sanitize(html);
+    // matchers, and hook, baseline off, so behaviour is otherwise identical. The
+    // policy is immutable, so that sanitizer is compiled once, on first use, and
+    // reused: compiling it was nearly all the cost of a short input.
+    let twin = this.unsafeTwin;
+    if (twin === null) {
+      const Ctor = this.constructor as new (policy?: Policy, opts?: SanitizerOptions) => SanitizerCore;
+      twin = this.unsafeTwin = new Ctor({ ...this.policy, allowUnsafe: true }, { parser: this.parserOverride, matchers: this.matchers, attrHook: this.attrHook });
+    }
+    return twin.sanitize(html);
   }
+  /** The baseline-off copy of this sanitizer behind `sanitizeUnsafe`, or null until first used. */
+  private unsafeTwin: SanitizerCore | null = null;
 
   /**
    * Return a new `Sanitizer` derived from this one with extra config, without
