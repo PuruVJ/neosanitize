@@ -15,9 +15,7 @@
 	const shellMeta = await meta();
 
 	const links = [
-		{ text: 'Guide', href: '/guide/introduction' },
-		{ text: 'Sanitizing', href: '/engine/sanitizing' },
-		{ text: 'Adapters', href: '/adapters/overview' },
+		{ text: 'Docs', href: '/guide/introduction' },
 		{ text: 'Legacy', href: '/drop-in/legacy' },
 		{ text: 'Performance', href: '/reference/performance' },
 		{ text: 'npm', href: 'https://www.npmjs.com/package/neosanitize' },
