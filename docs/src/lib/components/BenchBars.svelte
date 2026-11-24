@@ -8,6 +8,7 @@
 		order,
 		base,
 		ours,
+		labels = { original: 'sanitize-html' },
 	}: {
 		scenarios: Scenario[];
 		/** contenders, brand color first fading to muted last */
@@ -16,6 +17,8 @@
 		base: string;
 		/** contenders that get the neosanitize logo */
 		ours: string[];
+		/** display names, where they differ from the key */
+		labels?: Record<string, string>;
 	} = $props();
 
 	const fmtOps = (n: number) => {
@@ -57,10 +60,7 @@
 		{#each s.rows as row (row.key)}
 			<div class={['ns-bench-row', row.fastest && 'win']}>
 				<span class="ns-bench-lib">
-					{#if row.logo}<img src="/logo.svg" class="ns-bench-logo" alt="" />{/if}{row.key ===
-					'original'
-						? 'sanitize-html'
-						: row.key}
+					{#if row.logo}<img src="/logo.svg" class="ns-bench-logo" alt="" />{/if}{labels[row.key] ?? row.key}
 				</span>
 				<span class="ns-bench-track">
 					<span class="ns-bench-fill" style:width="{row.pct}%" style:--bar={row.color}></span>

@@ -6,6 +6,7 @@ redirect_from: performance
 <script>
 import EngineBench from '$lib/components/EngineBench.svelte';
 import AdapterBench from '$lib/components/AdapterBench.svelte';
+import DomPurifyBench from '$lib/components/DomPurifyBench.svelte';
 </script>
 
 neosanitize ships two engines, and **both are faster than the original `sanitize-html`**:
@@ -34,6 +35,19 @@ The main engine's parser is [pluggable](/adapters/overview). By default it uses 
 <AdapterBench />
 
 Our bundled parser is the fastest on nearly every workload; `htmlparser2` is close (and wins on pathologically deep nesting); `parse5` trades throughput for full spec conformance. Pick the default unless you specifically need one of those properties.
+
+## Versus DOMPurify
+
+[DOMPurify](https://github.com/cure53/DOMPurify) sanitizes by handing the input to a real DOM. In the browser that is the page's own DOM. On the server there is none, so DOMPurify's README pairs it with [jsdom](https://github.com/jsdom/jsdom). So it is measured twice, once in each place it runs:
+
+- **Node:** the main engine (`import { Sanitizer } from 'neosanitize'`) against DOMPurify on jsdom. This is what a server pays.
+- **Browser:** neosanitize's ~3 KB browser build against DOMPurify, in headless Chromium. Here both lean on the browser's own HTML parser (neosanitize through the native `DOMParser`), so this is the closest like-for-like match.
+
+Both sides get the same inputs (the 13 scenarios above) and the same allow-list. DOMPurify has no per-tag attribute lists, so every allowed attribute is allowed on every allowed tag, for both. Output is a string on both sides. Run it yourself with `pnpm bench:dompurify` (the browser half needs `pnpm exec playwright-core install chromium` once).
+
+<DomPurifyBench />
+
+In Node, almost all of DOMPurify's time goes to jsdom building and serializing a full DOM. In the browser, where the DOM is native and fast, neosanitize is still ahead on every scenario, the narrowest margin being `entity-heavy`.
 
 ## Where the speed comes from
 
