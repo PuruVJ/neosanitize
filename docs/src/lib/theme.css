@@ -1,0 +1,850 @@
+/**
+ * neosanitize docs: "readable brutalism" (the neotraverse docs theme) on ogygia's docs shell,
+ * with the accent retuned from emerald to VIOLET and the neutrals shifted cool. Rounded surfaces +
+ * hard offset shadows + mono uppercase LABELS + concrete grunge + the §-divider.
+ *
+ * ogygia's theme.css and shell.css live in `@layer ogygia`, so every unlayered rule here wins
+ * without !important. The palette is the `--ns-*` tokens; the `--og-*` tokens the shell paints
+ * with are mapped from them once, so dark mode only has to switch `--ns-*`.
+ */
+
+/* ---------------------------------------------------------------------------
+ * Tokens
+ * ------------------------------------------------------------------------- */
+:root {
+	--ns-radius: 0.625rem;
+	--ns-sans: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+	--ns-mono: ui-monospace, 'SF Mono', 'Menlo', 'Cascadia Code', 'Fira Code', monospace;
+
+	/* violet brand */
+	--ns-brand-1: oklch(0.55 0.19 300);
+	--ns-brand-2: oklch(0.62 0.21 300);
+	--ns-brand-3: oklch(0.69 0.2 300);
+	--ns-brand-soft: oklch(0.7 0.18 300 / 0.14);
+	--ns-on-brand: oklch(0.13 0.06 300);
+	/* the bench charts paint with this */
+	--ns-brand: var(--ns-brand-1);
+
+	/* cool-neutral light surfaces (faint purple tint) */
+	--ns-bg: oklch(0.99 0.004 300);
+	--ns-bg-alt: oklch(0.965 0.006 300);
+	--ns-bg-soft: oklch(0.96 0.008 300);
+	--ns-bg-elv: oklch(1 0 0);
+	--ns-text-1: oklch(0.22 0.015 300);
+	--ns-text-2: oklch(0.44 0.013 300);
+	--ns-text-3: oklch(0.58 0.012 300);
+	--ns-divider: oklch(0.22 0.01 300 / 0.12);
+	--ns-border: oklch(0.22 0.01 300 / 0.16);
+	--ns-gutter: oklch(0.9 0.008 300);
+	--ns-chrome: oklch(0.99 0.004 300 / 0.8);
+
+	/* brutalist depth: ink offset stamp */
+	--br-border: 2px solid var(--ns-border);
+	--br-shadow: 4px 4px 0 0 oklch(0.22 0.02 300 / 0.18);
+	--br-shadow-card: 8px 8px 0 0 oklch(0.22 0.02 300 / 0.22);
+	--br-shadow-hover: 6px 6px 0 0 var(--ns-brand-1);
+	--br-card-border: 2px solid var(--ns-border);
+	--br-card-lift: translate(-3px, -3px);
+	--br-btn-alt-sweep: var(--ns-brand-2);
+
+	--ns-hero-name: linear-gradient(100deg, oklch(0.56 0.2 300), oklch(0.52 0.18 272));
+	--ns-hero-glow: linear-gradient(135deg, oklch(0.7 0.18 300 / 0.4), oklch(0.6 0.16 278 / 0.3));
+	--ns-grid: oklch(0.5 0.08 300 / 3%);
+	--ns-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.035 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+	/* three layers in both themes, so .og-shell's background-size list lines up */
+	--ns-glow:
+		linear-gradient(transparent, transparent), linear-gradient(transparent, transparent),
+		linear-gradient(transparent, transparent);
+
+	/* ogygia's tokens, painted from ours */
+	--og-font: var(--ns-sans);
+	--og-mono: var(--ns-mono);
+	--og-radius-sm: 4px;
+	--og-radius: var(--ns-radius);
+	--og-radius-lg: 0.875rem;
+	--og-accent: var(--ns-brand-1);
+	--og-accent-hover: var(--ns-brand-2);
+	--og-accent-contrast: oklch(1 0 0);
+	--og-accent-text: var(--ns-brand-1);
+	--og-accent-soft: var(--ns-brand-soft);
+	--og-accent-line: color-mix(in oklch, var(--ns-brand-1) 40%, transparent);
+	--og-bg: var(--ns-bg);
+	--og-bg-subtle: var(--ns-bg-alt);
+	--og-bg-raised: var(--ns-bg-soft);
+	--og-bg-inset: var(--ns-gutter);
+	--og-text: var(--ns-text-1);
+	--og-text-dim: var(--ns-text-2);
+	--og-text-faint: var(--ns-text-3);
+	--og-line: var(--ns-border);
+	--og-line-soft: var(--ns-divider);
+	--og-ring: 0 0 0 3px color-mix(in oklch, var(--ns-brand-1) 32%, transparent);
+	--og-side-w: 17rem;
+	--og-content-w: 48rem;
+}
+
+/* cool-charcoal concrete with a violet tint. Twice: the system setting, and the toggle. */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		--ns-bg: oklch(0.16 0.009 300);
+		--ns-bg-alt: oklch(0.13 0.008 300);
+		--ns-bg-soft: oklch(0.205 0.012 300);
+		--ns-bg-elv: oklch(0.225 0.014 300);
+		--ns-text-1: oklch(0.96 0.01 300);
+		--ns-text-2: oklch(0.76 0.012 300);
+		--ns-text-3: oklch(0.6 0.014 300);
+		--ns-divider: oklch(1 0 0 / 0.1);
+		--ns-border: oklch(1 0 0 / 0.14);
+		--ns-gutter: oklch(0.09 0.006 300);
+		--ns-chrome: oklch(0.16 0.009 300 / 0.8);
+		--ns-brand-1: oklch(0.82 0.16 300);
+		--ns-brand-2: oklch(0.74 0.17 300);
+		--ns-brand-3: oklch(0.67 0.17 300);
+		--ns-brand-soft: oklch(0.74 0.17 300 / 0.16);
+		--ns-on-brand: oklch(0.12 0.05 300);
+		--og-accent-contrast: oklch(0.12 0.05 300);
+		--br-border: 2px solid oklch(1 0 0 / 0.14);
+		--br-shadow:
+			4px 4px 0 0 color-mix(in oklch, var(--ns-brand-1) 52%, transparent),
+			inset 0 1px 0 oklch(1 0 0 / 0.06);
+		--br-shadow-card: none;
+		--br-shadow-hover:
+			6px 6px 0 0 color-mix(in oklch, var(--ns-brand-1) 72%, transparent),
+			inset 0 1px 0 oklch(1 0 0 / 0.08);
+		--br-card-border: 0;
+		--br-card-lift: none;
+		--br-btn-alt-sweep: oklch(0.96 0.01 300);
+		--ns-hero-name: linear-gradient(100deg, oklch(0.86 0.16 300), oklch(0.78 0.14 268));
+		--ns-grid: oklch(0.74 0.06 300 / 3%);
+		--ns-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+		--ns-glow:
+			radial-gradient(ellipse at center, transparent 60%, oklch(0 0 0 / 18%) 100%),
+			radial-gradient(ellipse 80vw 60vh at 6% -8%, oklch(0.34 0.09 300 / 9%), transparent 62%),
+			radial-gradient(ellipse 80vw 60vh at 114% 22%, oklch(0.24 0.07 278 / 7%), transparent 68%);
+		color-scheme: dark;
+	}
+}
+:root[data-theme='dark'] {
+	--ns-bg: oklch(0.16 0.009 300);
+	--ns-bg-alt: oklch(0.13 0.008 300);
+	--ns-bg-soft: oklch(0.205 0.012 300);
+	--ns-bg-elv: oklch(0.225 0.014 300);
+	--ns-text-1: oklch(0.96 0.01 300);
+	--ns-text-2: oklch(0.76 0.012 300);
+	--ns-text-3: oklch(0.6 0.014 300);
+	--ns-divider: oklch(1 0 0 / 0.1);
+	--ns-border: oklch(1 0 0 / 0.14);
+	--ns-gutter: oklch(0.09 0.006 300);
+	--ns-chrome: oklch(0.16 0.009 300 / 0.8);
+	--ns-brand-1: oklch(0.82 0.16 300);
+	--ns-brand-2: oklch(0.74 0.17 300);
+	--ns-brand-3: oklch(0.67 0.17 300);
+	--ns-brand-soft: oklch(0.74 0.17 300 / 0.16);
+	--ns-on-brand: oklch(0.12 0.05 300);
+	--og-accent-contrast: oklch(0.12 0.05 300);
+	--br-border: 2px solid oklch(1 0 0 / 0.14);
+	--br-shadow:
+		4px 4px 0 0 color-mix(in oklch, var(--ns-brand-1) 52%, transparent),
+		inset 0 1px 0 oklch(1 0 0 / 0.06);
+	--br-shadow-card: none;
+	--br-shadow-hover:
+		6px 6px 0 0 color-mix(in oklch, var(--ns-brand-1) 72%, transparent),
+		inset 0 1px 0 oklch(1 0 0 / 0.08);
+	--br-card-border: 0;
+	--br-card-lift: none;
+	--br-btn-alt-sweep: oklch(0.96 0.01 300);
+	--ns-hero-name: linear-gradient(100deg, oklch(0.86 0.16 300), oklch(0.78 0.14 268));
+	--ns-grid: oklch(0.74 0.06 300 / 3%);
+	--ns-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+	--ns-glow:
+		radial-gradient(ellipse at center, transparent 60%, oklch(0 0 0 / 18%) 100%),
+		radial-gradient(ellipse 80vw 60vh at 6% -8%, oklch(0.34 0.09 300 / 9%), transparent 62%),
+		radial-gradient(ellipse 80vw 60vh at 114% 22%, oklch(0.24 0.07 278 / 7%), transparent 68%);
+	color-scheme: dark;
+}
+:root[data-theme='light'] {
+	color-scheme: light;
+}
+
+/* ---------------------------------------------------------------------------
+ * Concrete grunge, fixed, behind everything
+ * ------------------------------------------------------------------------- */
+/* Dialogs (the mobile nav sheet, the search palette) portal straight into <body>, outside
+ * .og-shell, so the type and colors have to live here too. */
+body {
+	margin: 0;
+	background-color: var(--ns-bg);
+	color: var(--ns-text-1);
+	font-family: var(--ns-sans);
+	line-height: 1.6;
+}
+.og-shell {
+	background-color: var(--ns-bg);
+	background-image:
+		var(--ns-glow), linear-gradient(var(--ns-grid) 1px, transparent 1px),
+		linear-gradient(90deg, var(--ns-grid) 1px, transparent 1px), var(--ns-grain);
+	background-attachment: fixed;
+	background-size:
+		100% 100%,
+		100% 100%,
+		100% 100%,
+		38px 38px,
+		38px 38px,
+		240px 240px;
+}
+
+html {
+	scroll-behavior: smooth;
+}
+
+::selection {
+	background: color-mix(in oklch, var(--ns-brand-3) 42%, transparent);
+}
+
+/* ---------------------------------------------------------------------------
+ * Chrome: blurred header, the sidebar lets the grunge through
+ * ------------------------------------------------------------------------- */
+.og-cheader {
+	background: var(--ns-chrome);
+	backdrop-filter: blur(12px) saturate(1.2);
+	-webkit-backdrop-filter: blur(12px) saturate(1.2);
+	border-bottom: 1px solid var(--ns-divider);
+}
+.ns-brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	color: var(--ns-text-1);
+	text-decoration: none;
+}
+.ns-brand img {
+	display: block;
+	width: 26px;
+	height: 26px;
+}
+.ns-brand__name {
+	font-size: 1rem;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+}
+.ns-version {
+	font-family: var(--ns-mono);
+	font-size: 0.74rem;
+	font-weight: 600;
+	color: var(--ns-text-3);
+	transition: color 0.12s ease;
+}
+.ns-brand:hover .ns-version {
+	color: var(--ns-brand-1);
+}
+/* the links sit on the right, next to the theme switcher */
+.og-cheader-nav {
+	margin-left: auto;
+	gap: 1.25rem;
+}
+.og-cheader-tools {
+	margin-left: 0;
+}
+/* six links don't fit beside a centered search, so it stays in the tools cluster at every width */
+.og-cheader-search {
+	position: static;
+	transform: none;
+	width: 13rem;
+}
+@media (max-width: 1100px) {
+	.og-cheader-nav {
+		gap: 0.9rem;
+	}
+	.og-cheader-search {
+		width: 9.5rem;
+	}
+}
+@media (max-width: 1000px) {
+	.og-cheader {
+		gap: 0.9rem;
+	}
+	.og-cheader-nav {
+		gap: 0.75rem;
+	}
+	.og-cheader .og-cheader-link {
+		letter-spacing: 0.04em;
+	}
+}
+.og-cheader-link {
+	font-family: var(--ns-mono);
+	font-size: 0.78rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+.ns-github {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	color: var(--ns-text-2);
+	transition: color 0.2s ease;
+}
+.ns-github:hover {
+	color: var(--ns-text-1);
+}
+
+@media (min-width: 901px) {
+	.og-cside {
+		background: transparent;
+		border-right: 1px solid var(--ns-divider);
+	}
+}
+
+/* sidebar: mono uppercase group labels, a hard-edged active chip */
+.og-nav-label {
+	font-family: var(--ns-mono);
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	color: var(--ns-text-1);
+}
+.og-nav-chip {
+	border-radius: 2px;
+	box-shadow: 3px 3px 0 0 color-mix(in oklch, var(--ns-brand-1) 35%, transparent);
+	border: 1px solid color-mix(in oklch, var(--ns-brand-1) 45%, transparent);
+}
+
+/* ---------------------------------------------------------------------------
+ * Typography: bold sans headings (tight tracking), mono for LABELS only
+ * ------------------------------------------------------------------------- */
+.og-eyebrow,
+.og-toc-label {
+	font-family: var(--ns-mono);
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	color: var(--ns-brand-1);
+}
+.og-title {
+	font-weight: 800;
+	letter-spacing: -0.04em;
+	line-height: 1.05;
+	font-size: clamp(2rem, 4vw, 2.6rem);
+}
+.og-body h2 {
+	font-weight: 800;
+	letter-spacing: -0.025em;
+	/* one rule under the heading, not ogygia's rule above it as well (pages also use `---`) */
+	border-top: 0;
+	padding-top: 0;
+	border-bottom: 1px solid var(--ns-divider);
+	padding-bottom: 0.4rem;
+	margin-top: 3rem;
+}
+/* a `---` right before a heading already separates the sections */
+.og-body hr + h2 {
+	margin-top: 0;
+}
+.og-body h3 {
+	font-weight: 700;
+	letter-spacing: -0.015em;
+}
+.og-body a:not(.og-heading-anchor) {
+	color: var(--ns-brand-1);
+	font-weight: 600;
+	text-decoration-color: color-mix(in oklch, var(--ns-brand-1) 40%, transparent);
+	text-underline-offset: 3px;
+}
+.og-body a:not(.og-heading-anchor):hover {
+	text-decoration-color: currentColor;
+}
+
+/* the §-divider on <hr> */
+.og-body hr {
+	position: relative;
+	border: none;
+	height: 1px;
+	margin: 3rem 0;
+	overflow: visible;
+	background: linear-gradient(
+		to right,
+		transparent,
+		var(--ns-border) 18%,
+		var(--ns-border) 82%,
+		transparent
+	);
+}
+.og-body hr::before {
+	content: '§';
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%, -50%);
+	padding: 0 0.85rem;
+	background: var(--ns-bg);
+	color: var(--ns-brand-1);
+	font-family: var(--ns-mono);
+	font-size: 0.85rem;
+	line-height: 1;
+}
+
+/* blockquotes: violet accent bar + soft tint */
+.og-body blockquote {
+	border-left: 3px solid var(--ns-brand-1);
+	background: var(--ns-brand-soft);
+	border-radius: 0 var(--ns-radius) var(--ns-radius) 0;
+	padding: 0.6rem 1.1rem;
+	color: var(--ns-text-1);
+}
+.og-body blockquote > p {
+	margin: 0.4rem 0;
+}
+
+/* inline code: subtle chip */
+.og-body :not(pre) > code {
+	background: var(--ns-bg-soft);
+	border: 1px solid var(--ns-divider);
+	font-weight: 500;
+}
+
+/* containers: a hard violet left bar */
+.og-body .og-admonition {
+	border-radius: 2px;
+	border-left-width: 4px;
+}
+.og-body .og-admonition-title {
+	font-family: var(--ns-mono);
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	font-size: 0.78rem;
+}
+
+/* tables: framed, mono uppercase header, zebra, tabular numerics */
+.og-body table {
+	width: 100%;
+	border: 1px solid var(--ns-border);
+	border-radius: var(--ns-radius);
+	border-collapse: separate;
+	border-spacing: 0;
+	overflow: hidden;
+	font-variant-numeric: tabular-nums;
+}
+/* the table draws the rounded frame; cells only draw the lines between them */
+.og-body :is(th, td) {
+	border: 0;
+	border-bottom: 1px solid var(--ns-divider);
+}
+.og-body :is(th, td) + :is(th, td) {
+	border-left: 1px solid var(--ns-divider);
+}
+.og-body tr:last-child > td {
+	border-bottom: 0;
+}
+.og-body th {
+	font-family: var(--ns-mono);
+	font-size: 0.74rem;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	background: var(--ns-bg-soft);
+	color: var(--ns-text-2);
+}
+.og-body tbody tr:nth-child(2n) {
+	background: color-mix(in oklch, var(--ns-bg-soft) 55%, transparent);
+}
+
+/* code blocks: a hard frame */
+.og-body .og-code {
+	border-radius: 4px;
+	border: 1px solid var(--ns-border);
+	box-shadow: 4px 4px 0 0 var(--ns-divider);
+}
+
+/* below the article: the edit link */
+.ns-doc-footer {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-top: 3rem;
+	padding-top: 1.25rem;
+	border-top: 1px solid var(--ns-divider);
+}
+.ns-edit {
+	font-family: var(--ns-mono);
+	font-size: 0.78rem;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--ns-brand-1);
+	text-decoration: none;
+}
+.ns-edit:hover {
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Home: no sidebar, the content runs full width
+ * ------------------------------------------------------------------------- */
+.og-shell:has(.ns-home) .og-cframe {
+	grid-template-columns: minmax(0, 1fr);
+}
+.og-shell:has(.ns-home) .og-cside {
+	display: none;
+}
+.og-shell:has(.ns-home) .og-cmain {
+	padding: 0;
+}
+
+.ns-home {
+	overflow-x: clip;
+}
+
+.ns-hero {
+	display: grid;
+	grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+	align-items: center;
+	gap: 3rem;
+	max-width: 72rem;
+	margin: 0 auto;
+	padding: 5.5rem 1.5rem 4rem;
+}
+.ns-hero__name,
+.ns-hero__text {
+	margin: 0;
+	font-family: var(--ns-mono);
+	font-weight: 800;
+	letter-spacing: -0.05em;
+	line-height: 1.02;
+	font-size: clamp(2.2rem, 4.8vw, 3.4rem);
+	border: 0;
+	padding: 0;
+}
+.ns-hero__name {
+	background: var(--ns-hero-name);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+.ns-hero__text {
+	margin-top: 0.15em;
+	color: var(--ns-text-1);
+	font-size: clamp(1.75rem, 3.6vw, 2.6rem);
+	letter-spacing: -0.04em;
+	line-height: 1.08;
+}
+.ns-hero__tagline {
+	max-width: 38rem;
+	margin: 1.25rem 0 0;
+	font-size: 1.15rem;
+	line-height: 1.6;
+	color: var(--ns-text-2);
+}
+.ns-hero__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.85rem;
+	margin-top: 2rem;
+}
+
+/* the logo, big, over a soft violet glow */
+.ns-hero__image {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.ns-hero__image::before {
+	content: '';
+	position: absolute;
+	inset: 50% auto auto 50%;
+	width: 70%;
+	aspect-ratio: 1;
+	border-radius: 50%;
+	background-image: var(--ns-hero-glow);
+	filter: blur(64px);
+	transform: translate(-50%, -50%);
+	z-index: 0;
+}
+.ns-hero__image img {
+	position: relative;
+	z-index: 1;
+	display: block;
+	width: 400px;
+	max-width: 100%;
+	height: auto;
+}
+
+/* buttons: raised surface + slanted hover wash (text always on top) */
+.ns-btn {
+	position: relative;
+	z-index: 0;
+	isolation: isolate;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 10rem;
+	overflow: hidden;
+	padding: 0.9rem 1.55rem;
+	border: 2px solid var(--ns-border);
+	border-radius: 2px;
+	background: var(--ns-bg-elv);
+	box-shadow: var(--br-shadow);
+	color: var(--ns-text-1);
+	font-family: var(--ns-mono);
+	font-size: 0.82rem;
+	font-weight: 800;
+	letter-spacing: 0.11em;
+	line-height: 1.1;
+	text-transform: uppercase;
+	text-decoration: none;
+	transition:
+		transform 0.12s ease,
+		box-shadow 0.12s ease,
+		border-color 0.12s ease,
+		color 0.15s ease;
+}
+.ns-btn::after {
+	content: '';
+	position: absolute;
+	inset: -8px -40%;
+	z-index: -1;
+	background: var(--br-btn-alt-sweep);
+	transform: skewX(-14deg) translateX(-110%);
+	transition: transform 0.22s cubic-bezier(0.33, 1, 0.68, 1);
+	pointer-events: none;
+}
+.ns-btn--brand {
+	border-color: var(--ns-brand-1);
+	background: linear-gradient(var(--ns-brand-soft), var(--ns-brand-soft)), var(--ns-bg-elv);
+}
+.ns-btn--brand::after {
+	background: var(--ns-brand-2);
+}
+.ns-btn:hover,
+.ns-btn:focus-visible {
+	transform: translate(-3px, -3px);
+	box-shadow: var(--br-shadow-hover);
+	border-color: var(--ns-brand-1);
+	color: var(--ns-on-brand);
+}
+.ns-btn:not(.ns-btn--brand):hover,
+.ns-btn:not(.ns-btn--brand):focus-visible {
+	color: var(--ns-bg);
+}
+.ns-btn:hover::after,
+.ns-btn:focus-visible::after {
+	transform: skewX(-14deg) translateX(0);
+}
+.ns-btn:active {
+	transform: translate(-1px, -1px);
+	box-shadow: var(--br-shadow);
+}
+
+/* feature cards (linked cards lift + arrow on hover) */
+.ns-features {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 1.5rem;
+	max-width: 72rem;
+	margin: 0 auto;
+	padding: 1rem 1.5rem 2.5rem;
+}
+.ns-feature {
+	position: relative;
+	display: block;
+	padding: 1.5rem 1.5rem 1.6rem;
+	border: var(--br-card-border);
+	background: var(--ns-bg-soft);
+	box-shadow: var(--br-shadow-card);
+	color: inherit;
+	text-decoration: none;
+}
+.ns-feature__icon {
+	display: block;
+	font-size: 1.65rem;
+	line-height: 1;
+	margin-bottom: 1rem;
+}
+.ns-feature__title {
+	margin: 0 0 0.5rem;
+	font-size: 1.05rem;
+	font-weight: 800;
+	letter-spacing: -0.02em;
+	color: var(--ns-text-1);
+	border: 0;
+	padding: 0;
+}
+.ns-feature__details {
+	margin: 0;
+	font-size: 0.92rem;
+	line-height: 1.55;
+	color: var(--ns-text-2);
+}
+.ns-feature__details code {
+	font-family: var(--ns-mono);
+	font-size: 0.85em;
+	padding: 0.1em 0.35em;
+	border-radius: 3px;
+	background: var(--ns-bg-elv);
+	border: 1px solid var(--ns-divider);
+}
+.ns-feature--link {
+	padding-right: 2.5rem;
+	padding-bottom: 2.25rem;
+	cursor: pointer;
+	transition:
+		transform 0.12s ease,
+		box-shadow 0.12s ease,
+		border-color 0.12s ease,
+		background 0.12s ease;
+}
+.ns-feature--link::after {
+	content: '→';
+	position: absolute;
+	right: 1rem;
+	bottom: 0.85rem;
+	font-family: var(--ns-mono);
+	font-size: 1.25rem;
+	font-weight: 800;
+	line-height: 1;
+	color: var(--ns-brand-1);
+	transform: skewX(-10deg);
+	transition: transform 0.12s ease;
+}
+.ns-feature--link:hover,
+.ns-feature--link:focus-visible {
+	border-color: var(--ns-brand-1);
+	transform: var(--br-card-lift);
+	box-shadow: var(--br-shadow-hover);
+}
+.ns-feature--link:hover::after,
+.ns-feature--link:focus-visible::after {
+	transform: skewX(-10deg) translate(3px, -3px);
+}
+
+/* the stat band (perf numbers under the features) */
+.ns-stats {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: stretch;
+	justify-content: center;
+	gap: 1rem;
+	max-width: 72rem;
+	margin: 0 auto;
+	padding: 0 1.5rem;
+}
+.ns-stat {
+	flex: 1 1 13rem;
+	padding: 1.1rem 1.25rem;
+	border: var(--br-border);
+	background: var(--ns-bg-soft);
+	box-shadow: var(--br-shadow);
+}
+.ns-stat__value {
+	font-family: var(--ns-mono);
+	font-size: 1.9rem;
+	font-weight: 900;
+	letter-spacing: -0.04em;
+	line-height: 1;
+	color: var(--ns-brand-1);
+	font-variant-numeric: tabular-nums;
+}
+.ns-stat__label {
+	margin-top: 0.4rem;
+	font-size: 0.82rem;
+	line-height: 1.45;
+	color: var(--ns-text-2);
+}
+.ns-stat__label strong {
+	color: var(--ns-text-1);
+	font-weight: 700;
+}
+
+/* the markdown body under the hero */
+.ns-home__body {
+	max-width: 56rem;
+	margin: 0 auto;
+	padding: 1.5rem 1.5rem 5rem;
+}
+
+/* dark: flat info panels with a violet edge, not button-shaped cards */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) .ns-feature {
+		border-left: 3px solid color-mix(in oklch, var(--ns-brand-1) 34%, transparent);
+	}
+	:root:not([data-theme='light']) .ns-feature--link:hover,
+	:root:not([data-theme='light']) .ns-feature--link:focus-visible {
+		box-shadow: none;
+		border-left-color: var(--ns-brand-1);
+		background: color-mix(in oklch, var(--ns-brand-soft) 22%, var(--ns-bg-soft));
+	}
+	:root:not([data-theme='light']) .ns-stat {
+		border: none;
+		border-left: 3px solid color-mix(in oklch, var(--ns-brand-1) 40%, transparent);
+		box-shadow: none;
+	}
+}
+:root[data-theme='dark'] .ns-feature {
+	border-left: 3px solid color-mix(in oklch, var(--ns-brand-1) 34%, transparent);
+}
+:root[data-theme='dark'] .ns-feature--link:hover,
+:root[data-theme='dark'] .ns-feature--link:focus-visible {
+	box-shadow: none;
+	border-left-color: var(--ns-brand-1);
+	background: color-mix(in oklch, var(--ns-brand-soft) 22%, var(--ns-bg-soft));
+}
+:root[data-theme='dark'] .ns-stat {
+	border: none;
+	border-left: 3px solid color-mix(in oklch, var(--ns-brand-1) 40%, transparent);
+	box-shadow: none;
+}
+
+@media (max-width: 960px) {
+	.ns-hero {
+		grid-template-columns: minmax(0, 1fr);
+		padding-top: 3.5rem;
+		gap: 2.5rem;
+	}
+	.ns-hero__image {
+		order: -1;
+	}
+	.ns-hero__image img {
+		width: 240px;
+	}
+	.ns-features {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+@media (max-width: 640px) {
+	.ns-hero {
+		padding: 2.5rem 1rem 2.5rem;
+	}
+	.ns-hero__image img {
+		width: 180px;
+	}
+	.ns-hero__tagline {
+		font-size: 1.02rem;
+	}
+	.ns-btn {
+		min-width: 0;
+		flex: 1 1 auto;
+		padding: 0.8rem 1.1rem;
+	}
+	.ns-features {
+		grid-template-columns: minmax(0, 1fr);
+		padding: 0.5rem 1rem 2rem;
+		gap: 1rem;
+	}
+	.ns-stats {
+		padding: 0 1rem;
+	}
+	.ns-home__body {
+		padding: 1rem 1rem 3.5rem;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+	.ns-btn,
+	.ns-btn::after,
+	.ns-feature--link {
+		transition: none;
+	}
+}

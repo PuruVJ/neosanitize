@@ -4,8 +4,8 @@ redirect_from: performance
 ---
 
 <script>
-import EngineBench from '$lib/components/EngineBench.svelte' with { wake: 'visible' };
-import AdapterBench from '$lib/components/AdapterBench.svelte' with { wake: 'visible' };
+import EngineBench from '$lib/components/EngineBench.svelte';
+import AdapterBench from '$lib/components/AdapterBench.svelte';
 </script>
 
 neosanitize ships two engines, and **both are faster than the original `sanitize-html`**:
