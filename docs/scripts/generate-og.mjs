@@ -1,4 +1,4 @@
-// Regenerates docs/public/og.png — the social/OpenGraph card (1200×630 logical,
+// Regenerates docs/static/og.png — the social/OpenGraph card (1200×630 logical,
 // rendered at 2× = 2400×1260) — from the inline template below, via headless
 // Chrome. Edit the copy/pills here and re-run:
 //
@@ -91,7 +91,7 @@ if (!process.env.CHROME_BIN && !existsSync(CHROME)) {
 
 const tmp = join(mkdtempSync(join(tmpdir(), 'og-')), 'og.html');
 writeFileSync(tmp, HTML);
-const out = fileURLToPath(new URL('../public/og.png', import.meta.url));
+const out = fileURLToPath(new URL('../static/og.png', import.meta.url));
 
 execFileSync(CHROME, [
 	'--headless=new', '--disable-gpu', '--hide-scrollbars',

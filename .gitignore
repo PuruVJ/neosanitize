@@ -8,11 +8,14 @@ coverage/
 .DS_Store
 .env
 .env.*
-docs/.vitepress/dist
-docs/.vitepress/cache
+docs/.svelte-kit
+.wrangler/
 
 # Heisenbench step counts (`pnpm bench:count`)
 packages/neosanitize/bench/heisenbench.json
 
 # generated root entry stubs (shipped via package.json `files`, not committed)
 packages/neosanitize/legacy.*
+
+# ogygia build-time keep-client route (auto-removed; only survives a crashed build)
+**/.ogygia-keep-client/

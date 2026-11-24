@@ -13,7 +13,7 @@ This is the monorepo. The published library lives in **[`packages/neosanitize`](
 | Path | What |
 | --- | --- |
 | [`packages/neosanitize`](packages/neosanitize) | The library, published to npm as [`neosanitize`](https://www.npmjs.com/package/neosanitize) |
-| [`docs`](docs) | The VitePress documentation site |
+| [`docs`](docs) | The documentation site ([ogygia](https://www.npmjs.com/package/ogygia)), at [neosanitize.puruvj.dev](https://neosanitize.puruvj.dev) |
 
 ## Develop
 
@@ -23,6 +23,7 @@ pnpm build       # build the library
 pnpm test        # build + run the suite
 pnpm typecheck
 pnpm docs:dev    # run the docs site locally
+pnpm docs:build  # build the docs site (Cloudflare Workers, see wrangler.jsonc)
 ```
 
 ## Releasing
