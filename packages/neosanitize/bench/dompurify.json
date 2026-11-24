@@ -1,0 +1,239 @@
+{
+  "node": {
+    "generatedAt": "2026-11-24T06:40:11.234Z",
+    "runtime": "Node v26.4.0",
+    "msPerTask": 800,
+    "versions": {
+      "dompurify": "3.5.0",
+      "jsdom": "31.0.1"
+    },
+    "summary": {
+      "dompurify": 1,
+      "neosanitize": 40.01
+    },
+    "scenarios": [
+      {
+        "name": "simple-comment",
+        "bytes": 141,
+        "ops": {
+          "neosanitize": 331217.99680333113,
+          "dompurify": 6665.649275867084
+        }
+      },
+      {
+        "name": "blog-post",
+        "bytes": 5704,
+        "ops": {
+          "neosanitize": 7291.560908909708,
+          "dompurify": 151.11313156952983
+        }
+      },
+      {
+        "name": "large-document",
+        "bytes": 115590,
+        "ops": {
+          "neosanitize": 330.8549976979339,
+          "dompurify": 7.333174167153911
+        }
+      },
+      {
+        "name": "xss-attack",
+        "bytes": 19723,
+        "ops": {
+          "neosanitize": 4647.997248996375,
+          "dompurify": 83.70074655765445
+        }
+      },
+      {
+        "name": "attribute-filtering",
+        "bytes": 28719,
+        "ops": {
+          "neosanitize": 2749.133720411699,
+          "dompurify": 108.53614913132401
+        }
+      },
+      {
+        "name": "url-scheme-filter",
+        "bytes": 21931,
+        "ops": {
+          "neosanitize": 2660.554113715318,
+          "dompurify": 74.36917084903294
+        }
+      },
+      {
+        "name": "style-filtering",
+        "bytes": 20821,
+        "ops": {
+          "neosanitize": 7804.200841341128,
+          "dompurify": 302.8942978752289
+        }
+      },
+      {
+        "name": "transform-tags",
+        "bytes": 10221,
+        "ops": {
+          "neosanitize": 4987.422485404698,
+          "dompurify": 99.03009257336676
+        }
+      },
+      {
+        "name": "escape-mode",
+        "bytes": 15761,
+        "ops": {
+          "neosanitize": 5159.264985686243,
+          "dompurify": 95.59153899781569
+        }
+      },
+      {
+        "name": "passthrough",
+        "bytes": 28733,
+        "ops": {
+          "neosanitize": 1833.0054121504206,
+          "dompurify": 35.69566809732754
+        }
+      },
+      {
+        "name": "entity-heavy",
+        "bytes": 24161,
+        "ops": {
+          "neosanitize": 3585.924859683818,
+          "dompurify": 285.32529179165766
+        }
+      },
+      {
+        "name": "big-table",
+        "bytes": 36599,
+        "ops": {
+          "neosanitize": 2216.6209811236554,
+          "dompurify": 76.09714456994021
+        }
+      },
+      {
+        "name": "deeply-nested",
+        "bytes": 6019,
+        "ops": {
+          "neosanitize": 8323.499801189573,
+          "dompurify": 88.66265694084821
+        }
+      }
+    ]
+  },
+  "browser": {
+    "generatedAt": "2026-11-24T06:40:38.488Z",
+    "runtime": "Chromium 159.0.8154.6",
+    "msPerTask": 800,
+    "versions": {
+      "dompurify": "3.5.0"
+    },
+    "summary": {
+      "dompurify": 1,
+      "neosanitize": 2.42
+    },
+    "scenarios": [
+      {
+        "name": "simple-comment",
+        "bytes": 141,
+        "ops": {
+          "neosanitize": 58913.22295427142,
+          "dompurify": 27697.556600959364
+        }
+      },
+      {
+        "name": "blog-post",
+        "bytes": 5704,
+        "ops": {
+          "neosanitize": 4317.190656280605,
+          "dompurify": 1686.1215947346245
+        }
+      },
+      {
+        "name": "large-document",
+        "bytes": 115590,
+        "ops": {
+          "neosanitize": 197.1108543088631,
+          "dompurify": 82.36844931653891
+        }
+      },
+      {
+        "name": "xss-attack",
+        "bytes": 19723,
+        "ops": {
+          "neosanitize": 1198.4987950678944,
+          "dompurify": 469.34200534503816
+        }
+      },
+      {
+        "name": "attribute-filtering",
+        "bytes": 28719,
+        "ops": {
+          "neosanitize": 1382.157364954918,
+          "dompurify": 434.0844395103369
+        }
+      },
+      {
+        "name": "url-scheme-filter",
+        "bytes": 21931,
+        "ops": {
+          "neosanitize": 1218.8873617257484,
+          "dompurify": 467.270456923158
+        }
+      },
+      {
+        "name": "style-filtering",
+        "bytes": 20821,
+        "ops": {
+          "neosanitize": 4706.260365396429,
+          "dompurify": 2136.6684897130667
+        }
+      },
+      {
+        "name": "transform-tags",
+        "bytes": 10221,
+        "ops": {
+          "neosanitize": 2380.5994758075362,
+          "dompurify": 1065.1277965548898
+        }
+      },
+      {
+        "name": "escape-mode",
+        "bytes": 15761,
+        "ops": {
+          "neosanitize": 1523.5608629821634,
+          "dompurify": 664.3836576593538
+        }
+      },
+      {
+        "name": "passthrough",
+        "bytes": 28733,
+        "ops": {
+          "neosanitize": 838.1155426507181,
+          "dompurify": 338.0865019852143
+        }
+      },
+      {
+        "name": "entity-heavy",
+        "bytes": 24161,
+        "ops": {
+          "neosanitize": 2684.0690120765876,
+          "dompurify": 2158.780185944261
+        }
+      },
+      {
+        "name": "big-table",
+        "bytes": 36599,
+        "ops": {
+          "neosanitize": 859.2161614521036,
+          "dompurify": 339.70515264860313
+        }
+      },
+      {
+        "name": "deeply-nested",
+        "bytes": 6019,
+        "ops": {
+          "neosanitize": 5483.251375790779,
+          "dompurify": 1403.327213925199
+        }
+      }
+    ]
+  }
+}
