@@ -22,7 +22,7 @@ function to_plain(md: string): string {
 			.replace(/<script[\s\S]*?<\/script>/g, '')
 			.replace(/<style[\s\S]*?<\/style>/g, '')
 			.replace(
-				/<(EngineBench|AdapterBench)\s*\/>/g,
+				/<(EngineBench|AdapterBench|DomPurifyBench)\s*\/>/g,
 				'_(interactive benchmark chart at https://neosanitize.puruvj.dev/reference/performance)_',
 			)
 			.replace(/^:::\s*\w+.*$/gm, '') // ::: tip / warning / code-group open
